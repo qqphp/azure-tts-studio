@@ -79,7 +79,7 @@ REST 路径说明:本后端固定走经典 Azure AI Speech REST 形式:
 在 Azure 门户中为 Speech 创建一个 AI Services 资源。创建地址：[Create an AI Services resource for Speech](https://portal.azure.com/#create/Microsoft.CognitiveServicesAIFoundry)
 
 填写创建资源所需的基础信息：
-![这是图片](.\static\images\readme\no1.png)
+![这是图片](./static/images/readme/no1.png)
 
 获取请求地址和密钥：
-![这是图片](.\static\images\readme\no2.png)
+![这是图片](./static/images/readme/no2.png)
