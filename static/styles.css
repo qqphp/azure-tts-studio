@@ -411,14 +411,21 @@ button { font-family: inherit; cursor: pointer; }
 }
 
 .filter-bar {
-  display: flex; flex-wrap: wrap; align-items: center;
+  display: flex; flex-direction: column;
   gap: 8px;
   padding: 10px 14px;
   border-bottom: 1px solid var(--line);
   background: var(--bg-2);
 }
 .filter-bar.hidden { display: none; }
-.filter-bar .input-mini { flex: 1; min-width: 140px; }
+.filter-bar > .select-mini,
+.filter-bar > .input-mini,
+.filter-bar > .check-line { width: 100%; }
+.filter-bar .input-mini { flex: 1; min-width: 0; }
+.filter-row {
+  display: flex; align-items: center; gap: 8px;
+}
+.filter-row > .select-mini { flex: 1; min-width: 0; }
 .check-line {
   display: inline-flex; align-items: center; gap: 5px;
   font-size: 12px;

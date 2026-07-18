@@ -54,23 +54,25 @@
       <h2>音色 <span id="voiceCount" class="panel-count">—</span></h2>
     </div>
     <div id="filterBar" class="filter-bar hidden">
+      <input id="voiceSearch" class="input-mini" type="search" placeholder="搜索音色 / 名称 / 地区…" />
       <select id="localeFilter" class="select-mini" title="按语言筛选">
         <option value="">全部语言</option>
       </select>
-      <select id="genderFilter" class="select-mini" title="按性别筛选">
-        <option value="">全部性别</option>
-        <option value="Female">女声</option>
-        <option value="Male">男声</option>
-      </select>
-      <select id="typeFilter" class="select-mini" title="按类型筛选">
-        <option value="">全部类型</option>
-        <option value="Neural">Neural</option>
-        <option value="Standard">Standard</option>
-      </select>
+      <div class="filter-row">
+        <select id="genderFilter" class="select-mini" title="按性别筛选">
+          <option value="">全部性别</option>
+          <option value="Female">女声</option>
+          <option value="Male">男声</option>
+        </select>
+        <select id="typeFilter" class="select-mini" title="按类型筛选">
+          <option value="">全部类型</option>
+          <option value="Neural">Neural</option>
+          <option value="Standard">Standard</option>
+        </select>
+      </div>
       <label class="check-line" title="只显示支持说话风格的音色">
         <input id="styleOnly" type="checkbox" /> 仅支持风格
       </label>
-      <input id="voiceSearch" class="input-mini" type="search" placeholder="搜索音色 / 名称 / 地区…" />
     </div>
     <div id="voiceList" class="voice-list">
       <div class="empty-hint">配置好设置并测试连接后,音色会出现在这里。</div>
