@@ -114,13 +114,21 @@
       </div>
 
       <div class="action-row">
+        <button id="aiDetectBtn" class="ai-btn" disabled title="未配置 LLM,请到设置-大模型配置">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v4M12 18v4M2 12h4M18 12h4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/><circle cx="12" cy="12" r="3"/></svg>
+          <span>AI 检测</span>
+        </button>
         <button id="speakBtn" class="primary-btn" disabled>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 5 6 9H2v6h4l5 4z"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
           <span>合成</span>
         </button>
-        <button id="downloadBtn" class="ghost-btn" disabled>下载音频</button>
+        <button id="downloadBtn" class="ghost-btn" disabled title="下载当前合成音频">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v12m0 0l-4-4m4 4l4-4M5 21h14"/></svg>
+          <span>下载</span>
+        </button>
         <span id="studioStatus" class="studio-status"></span>
       </div>
+      <div id="aiDetectResult" class="ai-result hidden"></div>
     </div>
   </section>
 
@@ -155,11 +163,18 @@
   <div class="modal-backdrop"></div>
   <div class="modal-card">
     <div class="modal-head">
-      <h3>连接设置</h3>
+      <h3>设置</h3>
       <button id="closeSettings" class="ghost-btn icon-only">✕</button>
     </div>
-    <div class="modal-body">
-      <p class="modal-hint">配置 Azure AI Speech 资源的请求地址和密钥。两者均可在 Azure Portal 资源的"密钥和终结点"页复制;也可填区域专用 TTS 域名(如 <code>https://eastus.tts.speech.microsoft.com</code>)。密钥只存在本机 <code>config.json</code>。</p>
+
+    <div class="tabs">
+      <button class="tab active" data-tab="tts">Azure Speech</button>
+      <button class="tab" data-tab="llm">大模型 AI 检测</button>
+    </div>
+
+    <!-- ======== Tab 1: Azure Speech ======== -->
+    <div id="tab-tts" class="tab-pane active">
+      <div class="modal-hint">配置 Azure AI Speech 资源的请求地址和密钥。两者均可在 Azure Portal 资源的"密钥和终结点"页复制;也可填区域专用 TTS 域名(如 <code>https://eastus.tts.speech.microsoft.com</code>)。密钥只存在本机 <code>config.json</code>。</div>
 
       <label class="field">
         <span>请求地址 Endpoint</span>
@@ -194,6 +209,46 @@
         <button id="saveSettings" class="primary-btn">保存配置</button>
         <button id="testSettings" class="ghost-btn">测试连接</button>
         <span id="testResult" class="test-result"></span>
+      </div>
+    </div>
+
+    <!-- ======== Tab 2: 大模型 LLM ======== -->
+    <div id="tab-llm" class="tab-pane">
+      <div class="modal-hint">配置大模型 (LLM) 用于"AI 检测"功能。所有预设厂商均走 OpenAI 兼容协议。密钥只存在本机 <code>config.json</code>。</div>
+
+      <label class="field">
+        <span>厂商 Provider</span>
+        <select id="llmProvider" class="select-mini">
+          <option value="">请选择厂商</option>
+        </select>
+        <small>选厂商会自动填默认请求地址和默认模型;也可选"自定义"自己填。</small>
+      </label>
+
+      <label class="field">
+        <span>请求地址 Base URL</span>
+        <input id="llmBase" type="text" placeholder="https://api.deepseek.com/v1 或本地部署 /v1" />
+        <small>OpenAI 兼容路径,后端会追加 <code>/chat/completions</code>、<code>/models</code>。</small>
+      </label>
+
+      <label class="field">
+        <span>密钥 API Key</span>
+        <input id="llmKey" type="password" placeholder="Bearer token" autocomplete="off" />
+        <small>已保存的密钥会脱敏显示;清空后再保存可覆盖。</small>
+      </label>
+
+      <label class="field">
+        <span>默认模型 Default Model <span class="required-mark">*</span></span>
+        <select id="llmDefaultModel" class="select-mini">
+          <option value="">请先获取模型</option>
+        </select>
+        <small>必选。点击"获取模型列表"拉取可用模型,再选一个默认用的。</small>
+      </label>
+
+      <div class="modal-actions">
+        <button id="saveLlm" class="primary-btn">保存 LLM 配置</button>
+        <button id="testLlm" class="ghost-btn">测试连接</button>
+        <button id="fetchModels" class="ghost-btn">获取模型列表</button>
+        <span id="llmTestResult" class="test-result"></span>
       </div>
     </div>
   </div>

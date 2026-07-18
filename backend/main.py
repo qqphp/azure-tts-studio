@@ -30,6 +30,11 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
+try:
+    import llm_bridge
+except Exception:
+    llm_bridge = None
+
 ROOT = Path(__file__).resolve().parent.parent
 CONFIG_PATH = ROOT / "config.json"
 HISTORY_DIR = ROOT / "history"
@@ -50,6 +55,13 @@ DEFAULT_CONFIG = {
     "defaultPitch": "",
     "defaultVolume": "",
     "outputFormat": "audio-16khz-128kbitrate-mono-mp3",
+    "llm": {
+        "provider": "",       # zhipu / deepseek / kimi / qwen / minimax / doubao / custom
+        "base": "",           # OpenAI 兼容 base URL
+        "apiKey": "",
+        "defaultModel": "",   # 必选
+        "timeout": 60,
+    },
 }
 
 
@@ -70,6 +82,14 @@ def save_config(cfg: dict[str, Any]) -> dict[str, Any]:
     for k in DEFAULT_CONFIG:
         if k in cfg and cfg[k] is not None:
             merged[k] = cfg[k]
+    # llm 是子对象;对未传字段做合并(避免 apiKey 因脱敏没传而被清空)
+    if isinstance(cfg.get("llm"), dict):
+        cur = dict(merged.get("llm") or {})
+        cur.update({k: v for k, v in cfg["llm"].items()
+                    if v is not None and v != ""})
+        # 允许显式清空(传空字符串清除):用空字符串 → 视为已传,我们仍用原值兜底
+        # 上述 .items 过滤了空串,如要清空请前往 config.json 手动改
+        merged["llm"] = cur
     CONFIG_PATH.write_text(json.dumps(merged, ensure_ascii=False, indent=2), "utf-8")
     return merged
 
@@ -79,6 +99,11 @@ def mask(cfg: dict[str, Any]) -> dict[str, Any]:
     if out.get("apiKey"):
         k = out["apiKey"]
         out["apiKey"] = (k[:4] + "***" + k[-4:]) if len(k) > 10 else "***"
+    llm = dict(out.get("llm") or {})
+    if llm.get("apiKey"):
+        k = llm["apiKey"]
+        llm["apiKey"] = (k[:4] + "***" + k[-4:]) if len(k) > 10 else "***"
+    out["llm"] = llm
     return out
 
 
@@ -348,6 +373,72 @@ async def history_batch_delete(req: Request):
         else:
             missing.append(hid)
     return {"ok": True, "deleted": deleted, "missing": missing}
+
+
+# ----------------------------- LLM (大模型) ------------------------------
+@app.get("/api/llm/providers")
+def llm_providers():
+    """返回厂商预设,供前端下拉渲染。"""
+    return [{"id": k, "label": v["label"], "base": v["base"], "default_model": v["default_model"]}
+            for k, v in llm_bridge.PROVIDERS.items()]
+
+
+@app.get("/api/llm/status")
+def llm_status():
+    """前端用来决定 AI 检测按钮是否可点。"""
+    if not llm_bridge:
+        return {"configured": False}
+    return {"configured": llm_bridge.is_configured(load_config()),
+            "model": llm_bridge.resolve_default_model(load_config())}
+
+
+@app.post("/api/llm/test")
+async def llm_test(req: Request):
+    """测试 LLM 连接:列模型。body 可带临时配置,用于保存前测试。"""
+    if not llm_bridge:
+        return {"ok": False, "error": "llm_bridge 未加载"}
+    raw = await req.body()
+    body = json.loads(raw) if raw else {}
+    cfg = load_config()
+    if body:
+        cur = dict(cfg.get("llm") or {})
+        cur.update({k: v for k, v in body.items() if k in llm_bridge.llm_settings(cfg)})
+        cfg["llm"] = cur
+    return await llm_bridge.test_connection(cfg)
+
+
+@app.get("/api/llm/models")
+async def llm_list_models():
+    """列出当前配置下可用模型。"""
+    if not llm_bridge:
+        raise HTTPException(500, "llm_bridge 未加载")
+    cfg = load_config()
+    if not llm_bridge.is_configured(cfg):
+        raise HTTPException(400, "LLM 未配置")
+    try:
+        return await llm_bridge.list_models(cfg)
+    except Exception as e:
+        raise HTTPException(502, f"{e}")
+
+
+@app.post("/api/llm/check")
+async def llm_check(req: Request):
+    """对文本做 AI 检测,返回 LLM JSON 结果(含 tts_text/summary 等)。"""
+    if not llm_bridge:
+        raise HTTPException(500, "llm_bridge 未加载")
+    cfg = load_config()
+    if not llm_bridge.is_configured(cfg):
+        raise HTTPException(400, "LLM 未配置,请先到设置中配置大模型")
+    body = await req.json()
+    text = (body.get("text") or "").strip()
+    if not text:
+        raise HTTPException(400, "text 不能为空")
+    try:
+        result = await llm_bridge.check_text(cfg, text)
+        return {"ok": True, "result": result,
+                "model": llm_bridge.resolve_default_model(cfg)}
+    except Exception as e:
+        return {"ok": False, "error": f"{type(e).__name__}: {e}"}
 
 
 # ----------------------------- 静态前端 -----------------------------------

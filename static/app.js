@@ -79,6 +79,7 @@ function setConn(status, label) {
 function openSettings() {
   $('settingsModal').classList.remove('hidden');
   loadSettingsForm();
+  loadLlmForm();
 }
 function closeSettings() { $('settingsModal').classList.add('hidden'); }
 
@@ -137,7 +138,141 @@ async function testSettings() {
   }
 }
 
-/* ------------------------------ 音色 ------------------------------ */
+/* ------------------------------ LLM 大模型 ------------------------------ */
+let LLM_PROVIDERS = [];
+let LLM_MODELS = []; // 最近一次获取到的模型列表
+
+async function loadLlmProviders() {
+  if (LLM_PROVIDERS.length) return LLM_PROVIDERS;
+  try {
+    LLM_PROVIDERS = await api('/api/llm/providers');
+    const sel = $('llmProvider');
+    sel.innerHTML = '<option value="">请选择厂商</option>' +
+      LLM_PROVIDERS.map(p => `<option value="${p.id}" data-base="${p.base}" data-model="${p.default_model}">${p.label}</option>`).join('');
+    return LLM_PROVIDERS;
+  } catch (e) { toast(e.message, 'err'); return []; }
+}
+
+async function loadLlmForm() {
+  await loadLlmProviders();
+  const cfg = await api('/api/settings');
+  const llm = cfg.llm || {};
+  $('llmProvider').value = llm.provider || '';
+  $('llmBase').value = llm.base || '';
+  // 密钥脱敏,不回填明文
+  $('llmKey').value = (llm.apiKey && !llm.apiKey.includes('***')) ? llm.apiKey : '';
+  $('llmKey').placeholder = llm.apiKey && llm.apiKey.includes('***') ? `已保存: ${llm.apiKey}` : 'Bearer token';
+
+  // 默认模型下拉:如果有保存的默认模型,先放一个占位
+  const dflt = llm.defaultModel || '';
+  const mSel = $('llmDefaultModel');
+  if (LLM_MODELS.length) {
+    mSel.innerHTML = LLM_MODELS.map(m => `<option value="${m.id}">${m.id}</option>`).join('');
+  } else if (dflt) {
+    mSel.innerHTML = `<option value="${dflt}">${dflt}</option>`;
+  } else {
+    mSel.innerHTML = '<option value="">请先获取模型</option>';
+  }
+  mSel.value = dflt;
+  $('llmTestResult').textContent = '';
+}
+
+function llmFormToBody(includeKey = true) {
+  const body = {
+    provider: $('llmProvider').value,
+    base: $('llmBase').value.trim(),
+    defaultModel: $('llmDefaultModel').value,
+    timeout: 60,
+  };
+  const k = $('llmKey').value.trim();
+  if (includeKey && k && !k.includes('***')) body.apiKey = k;
+  return body;
+}
+
+async function saveLlm() {
+  if (!$('llmDefaultModel').value) {
+    toast('请选择默认模型', 'err');
+    return;
+  }
+  try {
+    const saved = await api('/api/settings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ llm: llmFormToBody() }),
+    });
+    toast('LLM 配置已保存', 'ok');
+    updateAiDetectBtn();
+  } catch (e) { toast(e.message, 'err'); }
+}
+
+async function testLlm() {
+  // 先保存,再测试
+  await saveLlm();
+  const r = $('llmTestResult');
+  r.textContent = '测试中…';
+  r.className = 'test-result';
+  try {
+    const res = await api('/api/llm/test', {
+      method: 'POST', headers: {'Content-Type':'application/json'}, body: '{}'
+    });
+    if (res.ok) {
+      r.textContent = `✓ 连接成功 · 可用模型 ${res.count} 个`;
+      r.className = 'test-result ok';
+    } else {
+      r.textContent = `✗ ${res.error || '失败'}`;
+      r.className = 'test-result err';
+    }
+  } catch (e) {
+    r.textContent = `✗ ${e.message}`;
+    r.className = 'test-result err';
+  }
+}
+
+async function fetchModels() {
+  // 先保存(以免 base/key 不生效)
+  await saveLlm();
+  const r = $('llmTestResult');
+  r.textContent = '获取模型列表中…';
+  r.className = 'test-result';
+  try {
+    const list = await api('/api/llm/models');
+    LLM_MODELS = list;
+    const sel = $('llmDefaultModel');
+    if (!list.length) {
+      sel.innerHTML = '<option value="">未获取到模型</option>';
+      r.textContent = '⚠ 服务返回空列表';
+      r.className = 'test-result err';
+      return;
+    }
+    const cur = sel.value;
+    sel.innerHTML = list.map(m => `<option value="${m.id}">${m.id}${m.owned_by ? ' · ' + m.owned_by : ''}</option>`).join('');
+    // 优先保留当前选择,否则保留保存时的默认
+    if (list.some(m => m.id === cur)) sel.value = cur;
+    r.textContent = `✓ 获取 ${list.length} 个模型`;
+    r.className = 'test-result ok';
+  } catch (e) {
+    r.textContent = `✗ ${e.message}`;
+    r.className = 'test-result err';
+  }
+}
+
+async function updateAiDetectBtn() {
+  // 拉一次 /api/llm/status,决定 AI 检测按钮高亮/灰
+  try {
+    const s = await api('/api/llm/status');
+    const btn = $('aiDetectBtn');
+    if (!btn) return;
+    if (s.configured) {
+      btn.disabled = false;
+      btn.classList.remove('disabled');
+      btn.title = s.model ? `用 ${s.model} 对文本做质量检测` : '对文本做质量检测';
+    } else {
+      btn.disabled = true;
+      btn.classList.add('disabled');
+      btn.title = '未配置 LLM,请到设置-大模型配置';
+    }
+  } catch {}
+}
 async function loadVoices() {
   try {
     const voices = await api('/api/voices');
@@ -325,6 +460,66 @@ function paramValue(id, suffix) {
   const v = parseInt($(id).value, 10);
   if ($(id).dataset.empty === '1' || v === 0) return '';
   return (v > 0 ? '+' : '') + v + suffix;
+}
+
+/* ------------------------------ AI 检测 ------------------------------ */
+async function aiDetect() {
+  const text = $('textInput').value.trim();
+  if (!text) { toast('请先填写文本再检测', 'err'); return; }
+  const btn = $('aiDetectBtn');
+  btn.disabled = true;
+  btn.classList.add('active-spin');
+  $('studioStatus').textContent = 'AI 检测中…';
+  try {
+    const res = await api('/api/llm/check', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text }),
+    });
+    if (!res.ok) {
+      toast(res.error || 'AI 检测失败', 'err');
+      showAiResult(null, res.error);
+      return;
+    }
+    const r = res.result || {};
+    // 用 tts_text 替换用户文本
+    if (r.tts_text) {
+      $('textInput').value = r.tts_text;
+      updateSpeakBtn();
+      toast('已用检测结果替换文本', 'ok');
+    } else {
+      toast('LLM 未返回 tts_text,保留原文', '');
+    }
+    showAiResult(r, null, res.model);
+  } catch (e) {
+    toast(e.message, 'err');
+    showAiResult(null, e.message);
+  } finally {
+    btn.classList.remove('active-spin');
+    updateAiDetectBtn();
+    $('studioStatus').textContent = '';
+  }
+}
+
+function showAiResult(r, err, model) {
+  const el = $('aiDetectResult');
+  if (err && !r) {
+    el.innerHTML = `<div class="ar-head"><span>AI 检测失败</span></div><div class="ar-summary">${escapeHtml(err)}</div>`;
+    el.classList.remove('hidden');
+    return;
+  }
+  if (!r) { el.classList.add('hidden'); return; }
+  const score = (r.score !== undefined && r.score !== null) ? `评分 ${r.score}` : '';
+  const issuesCount = (r.issues && r.issues.length) ? ` · ${r.issues.length} 处问题` : '';
+  const summary = r.summary || '(LLM 未返回 summary)';
+  el.innerHTML = `
+    <div class="ar-head">
+      <span>AI 检测结果${model ? ' · ' + escapeHtml(model) : ''}</span>
+      ${score ? `<span class="ar-score">${score}${issuesCount}</span>` : ''}
+    </div>
+    <div class="ar-summary">${escapeHtml(summary)}</div>
+  `;
+  el.classList.remove('hidden');
 }
 
 async function speak() {
@@ -578,6 +773,43 @@ async function init() {
   document.querySelector('#settingsModal .modal-backdrop').onclick = closeSettings;
   $('saveSettings').onclick = saveSettings;
   $('testSettings').onclick = testSettings;
+  $('aiDetectBtn').onclick = aiDetect;
+  $('saveLlm').onclick = saveLlm;
+  $('testLlm').onclick = testLlm;
+  $('fetchModels').onclick = fetchModels;
+  // Tab 切换
+  document.querySelectorAll('#settingsModal .tab').forEach(t => {
+    t.onclick = () => {
+      document.querySelectorAll('#settingsModal .tab').forEach(x => x.classList.remove('active'));
+      document.querySelectorAll('#settingsModal .tab-pane').forEach(p => p.classList.remove('active'));
+      t.classList.add('active');
+      $('tab-' + t.dataset.tab).classList.add('active');
+    };
+  });
+  // 厂商切换:用预设覆盖 Base URL,并把默认模型下拉填成预设默认模型占位
+  $('llmProvider').onchange = () => {
+    const opt = $('llmProvider').selectedOptions[0];
+    if (!opt) return;
+    const isCustom = opt.value === 'custom';
+    const presetBase = opt.dataset.base || '';
+    const presetModel = opt.dataset.model || '';
+    // 自定义:不动 base(用户自己填);其余厂商直接覆盖为预设
+    if (!isCustom) $('llmBase').value = presetBase;
+    // 默认模型:填预设占位。已获取到的模型列表保留,否则只放预设一项
+    const sel = $('llmDefaultModel');
+    if (LLM_MODELS.length) {
+      // 如果当前已有模型列表且包含预设模型,直接选它;否则把预设插到第一位
+      if (!LLM_MODELS.some(m => m.id === presetModel)) {
+        LLM_MODELS = [{ id: presetModel, owned_by: '' }, ...LLM_MODELS];
+      }
+      sel.innerHTML = LLM_MODELS.map(m => `<option value="${m.id}">${m.id}${m.owned_by ? ' · ' + m.owned_by : ''}</option>`).join('');
+    } else {
+      sel.innerHTML = presetModel
+        ? `<option value="${presetModel}">${presetModel}(厂商默认 · 请保存后获取模型列表校验)</option>`
+        : '<option value="">请先获取模型</option>';
+    }
+    sel.value = presetModel;
+  };
   $('voiceSearch').addEventListener('input', renderVoices);
   $('localeFilter').addEventListener('change', renderVoices);
   $('genderFilter').addEventListener('change', renderVoices);
@@ -601,6 +833,7 @@ async function init() {
   bindRange('volume', '%');
 
   // 启动时检查是否已配置
+  updateAiDetectBtn();
   try {
     const cfg = await api('/api/settings');
     if (cfg.apiKey) {

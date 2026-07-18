@@ -61,6 +61,34 @@ REST 路径说明:本后端固定走经典 Azure AI Speech REST 形式:
 - 女声: `zh-CN-XiaoxiaoNeural` (晓晓,多风格)、`zh-CN-XiaoyiNeural` (晓伊)、`zh-CN-XiaohanNeural`
 - 男声: `zh-CN-YunyangNeural` (云扬)、`zh-CN-YunjianNeural` (云健)、`zh-CN-YunxiNeural` (云希)
 
+## AI 检测 (大模型) 配置
+
+"设置"弹窗里多了一个 Tab:**大模型 AI 检测**。配置完后工坊合成区"合成"按钮左侧的"AI 检测"按钮会高亮可点;没配置时呈灰色禁用状态。点击会用大模型对文本框内容做错别字、标点、语义、中英文混合、TTS 朗读优化等多维检测,返回结构严格 JSON。前端会:
+
+1. 用 LLM 返回的 `tts_text` 字段**替换**文本框内容(若为空则保留原文并 toast 提示)
+2. 把 `summary` 字段展示在合成按钮区下方,带评分 + 问题数标签
+
+支持的厂商(均走 OpenAI 兼容协议 `/v1/chat/completions` + Bearer key):
+
+| 厂商 | 默认 base URL | 默认模型 |
+|---|---|---|
+| 智谱 GLM | `https://open.bigmodel.cn/api/paas/v4` | glm-4-flash |
+| DeepSeek | `https://api.deepseek.com/v1` | deepseek-chat |
+| Kimi (月之暗面) | `https://api.moonshot.cn/v1` | moonshot-v1-8k |
+| 通义千问 | `https://dashscope.aliyuncs.com/compatible-mode/v1` | qwen-plus |
+| MiniMax | `https://api.minimax.chat/v1` | abab6.5s-chat |
+| 豆包 Doubao | `https://ark.cn-beijing.volces.com/api/v3` | doubao-1-5-pro-32k |
+| 自定义 | 用户填 | 用户填 |
+
+操作流程:
+1. 选厂商 → 自动填默认请求地址和默认模型(可直接保存)
+2. 填 API Key
+3. 点"获取模型列表" → 后端调 `{base}/models` 拉所有可用模型
+4. 在"默认模型"下拉里选一个(必选)
+5. 点"测试连接"验证 + "保存 LLM 配置"
+
+检测 prompt 固化在后端 `backend/prompt/text _detection.txt`,LLM 强制 `response_format: {"type":"json_object"}` 并对返回做容错 JSON 解析,即便个别厂商不支持 JSON mode 也能兜底。
+
 ## 设计取舍说明
 
 - **配置存储在服务端** `config.json`,而非常浏览器 localStorage:密钥不出后端,换浏览器/设备无需重填;代价是要本机跑后端进程。
