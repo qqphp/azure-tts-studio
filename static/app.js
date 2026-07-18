@@ -412,6 +412,7 @@ const STYLE_CN = {
   'gentle': '轻柔',
   'guilty': '内疚',
   'happy': '开心',
+  'documentary-narration': '纪录片旁白',
   'hopeful': '充满希望',
   hostile: '敌意',
   'cute': '可爱',
@@ -448,6 +449,13 @@ const STYLE_CN = {
   'voice-assistant': '语音助手',
   'whisper': '耳语',
   'whispering': '低语',
+  'assassin':'刺客(冷酷、低沉、神秘、克制，语速偏慢，带压迫感)',
+  'captain':'船长(威严、坚定、有领导力，像指挥官讲话)',
+  'cavalier':'骑士(优雅、自信、绅士，有贵族气质)',
+  'prince':'王子(高贵、温柔、优雅，带皇家气质)',
+  'game-narrator':'游戏旁白(戏剧化、充满激情，像游戏剧情旁白)',
+  'geomancer':'风水师(神秘、古老、智慧，像东方玄学角色)',
+  'poet':'诗人(文艺、柔和、富有情感，节奏舒缓)',
   'yelling': '叫喊',
 };
 

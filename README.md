@@ -2,6 +2,8 @@
 
 一个本地运行的 Web 应用,提供调用微软 Azure Cognitive Services 文本转语音 (Text-to-Speech) 的友好界面。后端 FastAPI 做代理,前端纯静态页面,密钥只存在本机,不会暴露给浏览器。
 
+![这是图片](./static/images/readme/demo1.gif)
+
 ## 功能
 
 - 设置菜单:配置端点 (Endpoint) / 区域 (Region) / 密钥 (Key),可一键**测试连接**,成功后自动拉取音色列表
