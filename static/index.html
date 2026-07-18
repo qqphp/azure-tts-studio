@@ -52,9 +52,6 @@
   <section class="panel voice-panel">
     <div class="panel-head">
       <h2>音色 <span id="voiceCount" class="panel-count">—</span></h2>
-      <div class="panel-tools">
-        <button id="toggleFilters" class="ghost-btn tiny" title="切换筛选条">筛选 ▾</button>
-      </div>
     </div>
     <div id="filterBar" class="filter-bar hidden">
       <select id="localeFilter" class="select-mini" title="按语言筛选">
@@ -77,6 +74,9 @@
     </div>
     <div id="voiceList" class="voice-list">
       <div class="empty-hint">配置好设置并测试连接后,音色会出现在这里。</div>
+    </div>
+    <div class="panel-foot">
+      <button id="toggleFilters" class="ghost-btn tiny" title="切换筛选条">筛选 ▾</button>
     </div>
   </section>
 
@@ -154,13 +154,13 @@
   <section class="panel history-panel">
     <div class="panel-head">
       <h2>历史 <span id="historyCount" class="panel-count">—</span></h2>
-      <div class="panel-tools">
-        <button id="selectAllHistory" class="ghost-btn tiny" title="全选/反选">全选</button>
-        <button id="batchDeleteHistory" class="ghost-btn tiny danger" disabled>批量删除</button>
-        <button id="refreshHistory" class="ghost-btn tiny">刷新</button>
-      </div>
     </div>
     <div id="historyList" class="history-list"></div>
+    <div class="panel-foot">
+      <button id="selectAllHistory" class="ghost-btn tiny" title="全选/反选">全选</button>
+      <button id="batchDeleteHistory" class="ghost-btn tiny danger" disabled>批量删除</button>
+      <button id="refreshHistory" class="ghost-btn tiny">刷新</button>
+    </div>
   </section>
 </main>
 

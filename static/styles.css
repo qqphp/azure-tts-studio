@@ -389,6 +389,14 @@ button { font-family: inherit; cursor: pointer; }
 }
 .panel-tools { display: flex; gap: 8px; align-items: center; }
 
+/* 面板底部操作条 */
+.panel-foot {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 14px;
+  border-top: 1px solid var(--line);
+  background: var(--bg-2);
+}
+
 .panel-count {
   font-family: var(--mono);
   font-size: 11px;
@@ -699,13 +707,19 @@ input[type="range"].empty::-webkit-slider-thumb {
 .play-btn:hover { transform: scale(1.06); }
 .play-btn.playing { background: var(--text); color: var(--bg); }
 
-.player-meta { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.player-meta {
+  flex: 1; min-width: 0;
+  display: flex; align-items: center; gap: 10px;
+  align-self: center;
+}
 .player-title {
   font-size: 11px;
   color: var(--text-2);
   font-family: var(--mono);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  flex-shrink: 0;
 }
+.wave { flex-shrink: 0; }
 
 /* 频谱:签名元素 */
 .wave {
@@ -733,6 +747,8 @@ input[type="range"].empty::-webkit-slider-thumb {
   font-size: 11px;
   color: var(--text-3);
   padding-right: 6px;
+  align-self: center;
+  white-space: nowrap;
 }
 
 /* ----- modal ----- */

@@ -631,9 +631,9 @@ async function loadHistory() {
     const list = await api('/api/history');
     const c = $('historyList');
     $('historyCount').textContent = list.length ? `${list.length} 条` : '—';
-    updateBatchBtn();
     if (!list.length) {
       c.innerHTML = '<div class="empty-hint">暂无历史。</div>';
+      updateBatchBtn();
       return;
     }
     c.innerHTML = list.map(h => `
@@ -687,6 +687,8 @@ async function loadHistory() {
         updateBatchBtn();
       });
     });
+    // DOM 已重新渲染,旧复选框全清;按钮文案随之重置
+    updateBatchBtn();
   } catch (e) { toast(e.message, 'err'); }
 }
 
