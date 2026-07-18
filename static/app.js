@@ -766,7 +766,34 @@ function bindRange(id, suffix) {
 }
 
 /* ------------------------------ 启动 ------------------------------ */
+/* ------------------------------ 主题切换 ------------------------------ */
+function currentTheme() {
+  return localStorage.getItem('theme') || 'system';
+}
+function setTheme(t) {
+  localStorage.setItem('theme', t);
+  document.documentElement.setAttribute('data-theme', t);
+  updateThemeSwitch();
+}
+function updateThemeSwitch() {
+  const cur = currentTheme();
+  document.querySelectorAll('.theme-switch .seg').forEach(b => {
+    b.classList.toggle('active', b.dataset.theme === cur);
+  });
+}
+function initTheme() {
+  updateThemeSwitch();
+  document.querySelectorAll('.theme-switch .seg').forEach(b => {
+    b.onclick = () => setTheme(b.dataset.theme);
+  });
+  // 系统模式下,如果运行中操作系统切换了主题,跟随更新
+  window.matchMedia('(prefers-color-scheme: light)').addEventListener('change', () => {
+    if (currentTheme() === 'system') updateThemeSwitch();
+  });
+}
+
 async function init() {
+  initTheme();
   // 事件绑定
   $('settingsBtn').onclick = openSettings;
   $('closeSettings').onclick = closeSettings;
