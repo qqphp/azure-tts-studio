@@ -1,0 +1,16 @@
+# 敏感配置
+config.json
+history/
+
+# Python
+backend/.venv/
+backend/__pycache__/
+__pycache__/
+*.pyc
+
+# Visual Studio
+.vs/
+
+# 临时
+.DS_Store
+Thumbs.db
