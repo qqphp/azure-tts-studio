@@ -427,24 +427,41 @@ async function loadHistory() {
   try {
     const list = await api('/api/history');
     const c = $('historyList');
+    $('historyCount').textContent = list.length ? `${list.length} 条` : '—';
+    updateBatchBtn();
     if (!list.length) {
       c.innerHTML = '<div class="empty-hint">暂无历史。</div>';
       return;
     }
     c.innerHTML = list.map(h => `
       <div class="hist-item" data-id="${h.id}">
-        <div class="h-top">
-          <span class="h-voice">${h.voice}</span>
-          <span class="h-time">${new Date(h.ts * 1000).toLocaleString('zh-CN', {hour12:false}).replace(/\//g,'-')}</span>
-        </div>
-        <div class="h-text">${escapeHtml(h.text)}</div>
-        <div class="h-actions">
-          <button class="play">▶ 播放</button>
-          <a href="/api/history/${h.id}" download class="dl" style="color:inherit;text-decoration:none;">↓ 下载</a>
-          <button class="del" data-id="${h.id}">✕ 删除</button>
+        <label class="h-check" title="选中以批量操作">
+          <input type="checkbox" class="h-sel" data-id="${h.id}" />
+        </label>
+        <div class="h-body">
+          <div class="h-top">
+            <span class="h-voice">${h.voice}</span>
+            <span class="h-time">${new Date(h.ts * 1000).toLocaleString('zh-CN', {hour12:false}).replace(/\//g,'-')}</span>
+          </div>
+          <div class="h-text">${escapeHtml(h.text)}</div>
+          <div class="h-actions">
+            <button class="icon-btn play" title="播放">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+              <span>播放</span>
+            </button>
+            <a class="icon-btn dl" href="/api/history/${h.id}" download title="下载">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v12m0 0l-4-4m4 4l4-4M5 21h14"/></svg>
+              <span>下载</span>
+            </a>
+            <button class="icon-btn del" data-id="${h.id}" title="删除此条">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m-9 0v14a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2V6"/></svg>
+              <span>删除</span>
+            </button>
+          </div>
         </div>
       </div>
     `).join('');
+
     c.querySelectorAll('.hist-item').forEach(el => {
       el.querySelector('.play').onclick = async (e) => {
         e.stopPropagation();
@@ -458,8 +475,51 @@ async function loadHistory() {
         await api(`/api/history/${el.dataset.id}`, { method: 'DELETE' });
         loadHistory();
       };
+      el.querySelector('.h-sel').onchange = updateBatchBtn;
+      el.addEventListener('click', (e) => {
+        // 点击条目空白处切换选中,方便批量选
+        if (e.target.closest('.h-actions') || e.target.closest('label')) return;
+        const cb = el.querySelector('.h-sel');
+        cb.checked = !cb.checked;
+        updateBatchBtn();
+      });
     });
   } catch (e) { toast(e.message, 'err'); }
+}
+
+function selectedHistoryIds() {
+  return [...document.querySelectorAll('.h-sel:checked')].map(cb => cb.dataset.id);
+}
+
+function updateBatchBtn() {
+  const ids = selectedHistoryIds();
+  const btn = $('batchDeleteHistory');
+  if (!btn) return;
+  btn.disabled = ids.length === 0;
+  btn.textContent = ids.length ? `批量删除 (${ids.length})` : '批量删除';
+}
+
+async function batchDeleteHistory() {
+  const ids = selectedHistoryIds();
+  if (!ids.length) return;
+  if (!confirm(`确定删除选中的 ${ids.length} 条历史吗?此操作不可撤销。`)) return;
+  try {
+    const res = await api('/api/history/batch-delete', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ids }),
+    });
+    toast(`已删除 ${res.deleted} 条${res.missing?.length ? `,${res.missing.length} 条未找到` : ''}`, 'ok');
+    loadHistory();
+  } catch (e) { toast(e.message, 'err'); }
+}
+
+function toggleSelectAllHistory() {
+  const boxes = [...document.querySelectorAll('.h-sel')];
+  if (!boxes.length) return;
+  const allChecked = boxes.every(b => b.checked);
+  boxes.forEach(b => b.checked = !allChecked);
+  updateBatchBtn();
 }
 
 function playBlob(blob, meta) {
@@ -533,6 +593,8 @@ async function init() {
   $('downloadBtn').onclick = downloadAudio;
   $('playToggle').onclick = togglePlay;
   $('refreshHistory').onclick = loadHistory;
+  $('batchDeleteHistory').onclick = batchDeleteHistory;
+  $('selectAllHistory').onclick = toggleSelectAllHistory;
 
   bindRange('rate', '%');
   bindRange('pitch', 'Hz');

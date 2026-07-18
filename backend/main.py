@@ -324,6 +324,32 @@ def history_delete(hid: str):
     return {"ok": True}
 
 
+@app.post("/api/history/batch-delete")
+async def history_batch_delete(req: Request):
+    """批量删除历史。body: {"ids": ["id1","id2",...]} -> {"ok":true,"deleted":N,"missing":[...]}"""
+    body = await req.json()
+    ids = body.get("ids") or []
+    if not isinstance(ids, list):
+        raise HTTPException(400, "ids 必须是数组")
+    deleted = 0
+    missing: list[str] = []
+    for raw in ids:
+        hid = "".join(c for c in str(raw) if c.isalnum())
+        if not hid:
+            continue
+        hit = False
+        for ext in (".json", ".bin"):
+            p = HISTORY_DIR / f"{hid}{ext}"
+            if p.exists():
+                p.unlink()
+                hit = True
+        if hit:
+            deleted += 1
+        else:
+            missing.append(hid)
+    return {"ok": True, "deleted": deleted, "missing": missing}
+
+
 # ----------------------------- 静态前端 -----------------------------------
 if STATIC_DIR.exists():
     app.mount("/", StaticFiles(directory=str(STATIC_DIR), html=True), name="static")

@@ -127,8 +127,10 @@
   <!-- 历史 -->
   <section class="panel history-panel">
     <div class="panel-head">
-      <h2>历史</h2>
+      <h2>历史 <span id="historyCount" class="panel-count">—</span></h2>
       <div class="panel-tools">
+        <button id="selectAllHistory" class="ghost-btn tiny" title="全选/反选">全选</button>
+        <button id="batchDeleteHistory" class="ghost-btn tiny danger" disabled>批量删除</button>
         <button id="refreshHistory" class="ghost-btn tiny">刷新</button>
       </div>
     </div>

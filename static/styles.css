@@ -111,6 +111,9 @@ button { font-family: inherit; cursor: pointer; }
 .ghost-btn:hover { color: var(--text); border-color: var(--line-2); background: var(--panel); }
 .ghost-btn.tiny { padding: 4px 10px; font-size: 12px; }
 .ghost-btn.icon-only { padding: 6px 9px; }
+.ghost-btn.danger { color: #e09090; }
+.ghost-btn.danger:hover:not(:disabled) { border-color: var(--danger); color: var(--danger); background: rgba(199,90,90,.08); }
+.ghost-btn.danger:disabled { color: var(--text-3); }
 
 .primary-btn {
   background: var(--accent);
@@ -398,25 +401,39 @@ input[type="range"].empty::-webkit-slider-thumb {
 /* ----- history ----- */
 .history-list { flex: 1; overflow: auto; padding: 8px; }
 .hist-item {
+  display: flex; align-items: flex-start; gap: 10px;
   padding: 10px 12px;
   border-bottom: 1px solid var(--line);
-  cursor: pointer;
+  cursor: default;
   transition: background .12s ease;
 }
 .hist-item:hover { background: var(--panel-2); }
+.hist-item.selected { background: var(--accent-soft); }
+
+.h-check {
+  flex-shrink: 0;
+  margin-top: 2px;
+  cursor: pointer;
+  display: inline-flex; align-items: center;
+}
+.h-check input { accent-color: var(--accent); cursor: pointer; }
+
+.hist-item .h-body { flex: 1; min-width: 0; }
 .hist-item .h-top {
   display: flex; justify-content: space-between; align-items: center;
-  margin-bottom: 4px;
+  margin-bottom: 4px; gap: 8px;
 }
 .hist-item .h-voice {
   font-family: var(--mono);
   font-size: 11px;
   color: var(--accent);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .hist-item .h-time {
   font-family: var(--mono);
   font-size: 10px;
   color: var(--text-3);
+  flex-shrink: 0;
 }
 .hist-item .h-text {
   font-size: 12px;
@@ -425,21 +442,37 @@ input[type="range"].empty::-webkit-slider-thumb {
   text-overflow: ellipsis;
   display: -webkit-box;
   -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+  line-height: 1.55;
+  margin-bottom: 8px;
 }
+
+/* 三个操作按钮:图标 + 文字 + 间距明显 + 像按钮 */
 .hist-item .h-actions {
-  display: flex; gap: 8px;
-  margin-top: 6px;
+  display: flex; gap: 14px;
+  flex-wrap: wrap;
+}
+.hist-item .h-actions .icon-btn {
+  display: inline-flex; align-items: center; gap: 5px;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  color: var(--text-2);
   font-family: var(--mono);
-  font-size: 10px;
-  color: var(--text-3);
+  font-size: 11px;
+  padding: 4px 10px;
+  border-radius: var(--radius);
+  cursor: pointer;
+  text-decoration: none;
+  transition: all .12s ease;
 }
-.hist-item .h-actions button {
-  background: none; border: none; color: var(--text-3);
-  font-family: var(--mono); font-size: 10px;
-  cursor: pointer; padding: 0;
+.hist-item .h-actions .icon-btn svg { flex-shrink: 0; }
+.hist-item .h-actions .icon-btn:hover {
+  color: var(--text);
+  border-color: var(--line-2);
+  background: var(--panel-2);
 }
-.hist-item .h-actions button:hover { color: var(--accent); }
-.hist-item .h-actions .del:hover { color: var(--danger); }
+.hist-item .h-actions .icon-btn.play:hover { color: var(--accent); border-color: var(--accent); }
+.hist-item .h-actions .icon-btn.dl:hover   { color: var(--teal);   border-color: var(--teal); }
+.hist-item .h-actions .icon-btn.del:hover  { color: var(--danger);  border-color: var(--danger); }
 
 /* ----- player bar (signature) ----- */
 .player-bar {
