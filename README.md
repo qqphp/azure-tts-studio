@@ -105,7 +105,7 @@ REST 路径说明:本后端固定走经典 Azure AI Speech REST 形式:
 - **音色列表为空**:Azure 部分订阅未开通 neural 音色,确认资源区域支持 Neural。
 - **合成音频听不到**:浏览器对 mp3 简单拼接的解码通常 OK;若换格式后失败,建议保持默认 mp3 16kHz。
 
-## 第一种方案，创建 Foundry 资源(付费)
+## Azure TTS配置的第一种方案，创建 Foundry 资源(付费)
 在 Azure 门户中创建一个 Foundry 资源。官网地址：[https://portal.azure.com](https://portal.azure.com)
 
 1. 填写创建 Foundry 资源，填写所需的基础信息
@@ -120,7 +120,7 @@ REST 路径说明:本后端固定走经典 Azure AI Speech REST 形式:
 ![这是图片](./static/images/readme/foundry4.png)
 ![这是图片](./static/images/readme/foundry5.png)
 
-## 第二种方案，创建语言服务(免费，限50万字)
+## Azure TTS配置的第二种方案，创建语言服务(免费，限50万字)
 在 Azure 门户中创建一个语音服务资源。官网地址：[https://portal.azure.com](https://portal.azure.com)
 
 1. 查询语音服务资源，然后创建语音服务资源

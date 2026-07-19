@@ -189,13 +189,13 @@
     </div>
 
     <div class="tabs">
-      <button class="tab active" data-tab="tts">Azure Speech</button>
+      <button class="tab active" data-tab="tts">Azure TTS 配置</button>
       <button class="tab" data-tab="llm">大模型 AI 检测</button>
     </div>
 
-    <!-- ======== Tab 1: Azure Speech ======== -->
+    <!-- ======== Tab 1: Azure TTS 配置 ======== -->
     <div id="tab-tts" class="tab-pane active">
-      <div class="modal-hint">配置 Azure AI Speech 资源的请求地址和密钥。两者均可在 Azure Portal 资源的"密钥和终结点"页复制;也可填区域专用 TTS 域名(如 <code>https://eastus.tts.speech.microsoft.com</code>)。密钥只存在本机 <code>config.json</code>。</div>
+      <div class="modal-hint">支持 Azure 中创建的 Foundry 资源和语音服务资源，具体可查阅 README.md 说明。密钥只存在本机 <code>config.json</code>。</div>
 
       <label class="field">
         <span>请求地址 Endpoint</span>
