@@ -1,7 +1,7 @@
 """微软 Azure 文本转语音后端。
 
 经典 Azure AI Speech 资源(AIServices)REST 形式:
-- 列出音色:GET {endpoint}/cognitiveservices/voices/list
+- 列出音色:GET {endpoint}/tts/cognitiveservices/voices/list
 - 合成语音:POST {endpoint}/cognitiveservices/v1   body 为 SSML
 
 提供:
@@ -117,7 +117,11 @@ def tts_endpoint(cfg: dict[str, Any]) -> str:
 
 
 def voices_endpoint(cfg: dict[str, Any]) -> str:
-    return normalize_endpoint(cfg) + "/cognitiveservices/voices/list"
+    base = normalize_endpoint(cfg)
+    # 区域专用 TTS 域名沿用旧路径；Foundry / AI Services 资源端点需加 /tts。
+    if ".tts.speech." in base.lower():
+        return base + "/cognitiveservices/voices/list"
+    return base + "/tts/cognitiveservices/voices/list"
 
 
 def auth_headers(cfg: dict[str, Any]) -> dict[str, str]:
