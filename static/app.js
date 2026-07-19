@@ -290,22 +290,71 @@ async function loadVoices() {
 }
 
 function renderVoiceFilters() {
+  function valuesOf(items, getter) {
+    const values = [];
+    items.forEach(item => {
+      const raw = getter(item);
+      const list = Array.isArray(raw) ? raw : (raw ? [raw] : []);
+      list.forEach(value => {
+        if (value !== null && value !== undefined && String(value)) values.push(String(value));
+      });
+    });
+    return [...new Set(values)].sort((a, b) => a.localeCompare(b));
+  }
+
+  function setOptions(id, values, firstLabel, labelMap = {}) {
+    const sel = $(id);
+    const current = sel.value;
+    sel.innerHTML = `<option value="">${escapeHtml(firstLabel)}</option>` +
+      values.map(value => {
+        const label = labelMap[value] || labelMap[String(value).toLowerCase()] || value;
+        return `<option value="${escapeHtml(value)}">${escapeHtml(label)}</option>`;
+      }).join('');
+    sel.value = values.includes(current) ? current : '';
+  }
+
+  const tagValues = (v, key) => (v.VoiceTag && typeof v.VoiceTag === 'object') ? v.VoiceTag[key] : [];
+
   // 语言:带友好名,按代码排序
-  const locales = [...new Set(state.voices.map(v => v.Locale))].sort();
-  const sel = $('localeFilter');
-  const cur = sel.value;
-  sel.innerHTML = '<option value="">全部语言</option>' +
-    locales.map(l => `<option value="${l}">${localeName(l)}</option>`).join('');
-  sel.value = cur;
+  const locales = valuesOf(state.voices, v => v.Locale);
+  setOptions('localeFilter', locales, '全部语言', Object.fromEntries(locales.map(l => [l, localeName(l)])));
 
   // 类型:从数据里发现,Neural / Standard 可能有别的(VoiceType 字段)
-  const types = [...new Set(state.voices.map(v => v.VoiceType).filter(Boolean))];
-  const tf = $('typeFilter');
-  const curT = tf.value;
+  const types = valuesOf(state.voices, v => v.VoiceType);
   const typeLabels = { 'Neural':'Neural', 'Standard':'Standard', 'OnlineNatural':'OnlineNatural (自然)' };
-  tf.innerHTML = '<option value="">全部类型</option>' +
-    types.map(t => `<option value="${t}">${typeLabels[t] || t}</option>`).join('');
-  tf.value = curT;
+  setOptions('typeFilter', types, '全部类型', typeLabels);
+
+  const roleLabels = {
+    Boy: '男孩', Girl: '女孩', YoungAdultMale: '青年男性', YoungAdultFemale: '青年女性',
+    OlderAdultMale: '中老年男性', OlderAdultFemale: '中老年女性',
+    SeniorMale: '老年男性', SeniorFemale: '老年女性', Narrator: '旁白',
+  };
+  const statusLabels = { GA: '正式版 GA', Preview: '预览版 Preview', Deprecated: '已弃用 Deprecated' };
+  const scenarioLabels = {
+    advertisement: '广告', assistant: '语音助手', audiobook: '有声书', audiobooks: '有声书',
+    chat: '聊天对话', 'customer service': '客户服务', documentary: '纪录片',
+    'e-learning': '在线学习', gaming: '游戏', learning: '学习', meditation: '冥想',
+    narration: '旁白', news: '新闻播报', podcast: '播客', 'social media': '社交媒体',
+    story: '故事讲述', 'call center': '呼叫中心', conversation: '对话',
+  };
+  const personalityLabels = {
+    animated: '生动', approachable: '平易近人', authentic: '真诚自然', authoritative: '权威',
+    bright: '明亮', calm: '平静', caring: '关怀', casual: '轻松', cheerful: '开朗',
+    clear: '清晰', confident: '自信', crisp: '清脆', curious: '好奇', deep: '深沉',
+    emotional: '富有情感', empathetic: '善解人意', engaging: '吸引人', expressive: '富有表现力',
+    formal: '正式', friendly: '友好', gentle: '温和', hoarse: '沙哑', honest: '坦诚',
+    'light-hearted': '轻快', mature: '成熟', pleasant: '悦耳', polite: '礼貌',
+    professional: '专业', resonant: '共鸣感', serious: '严肃', shy: '腼腆', sincere: '真挚',
+    smooth: '圆润', soft: '柔和', soothing: '舒缓', strong: '有力量', thoughtful: '体贴',
+    trusthworthy: '值得信赖', upbeat: '积极', versatile: '多变', warm: '温暖',
+    'well-rounded': '全面均衡', whimsical: '奇趣', youthful: '青春',
+  };
+  setOptions('roleFilter', valuesOf(state.voices, v => v.RolePlayList), '全部年龄感 / 角色', roleLabels);
+  setOptions('statusFilter', valuesOf(state.voices, v => v.Status), '全部状态', statusLabels);
+  setOptions('scenarioFilter', valuesOf(state.voices, v => tagValues(v, 'TailoredScenarios')), '全部使用场景', scenarioLabels);
+  setOptions('personalityFilter', valuesOf(state.voices, v => tagValues(v, 'VoicePersonalities')), '全部音色人格', personalityLabels);
+  setOptions('modelFilter', valuesOf(state.voices, v => tagValues(v, 'ModelSeries')), '全部模型系列');
+  setOptions('sourceFilter', valuesOf(state.voices, v => tagValues(v, 'Source')), '全部模型来源');
 }
 
 function voiceTypeTag(v) {
@@ -322,15 +371,39 @@ function renderVoices() {
   const loc = $('localeFilter').value;
   const gender = $('genderFilter').value;
   const type = $('typeFilter').value;
+  const role = $('roleFilter').value;
+  const status = $('statusFilter').value;
+  const scenario = $('scenarioFilter').value;
+  const personality = $('personalityFilter').value;
+  const model = $('modelFilter').value;
+  const source = $('sourceFilter').value;
   const styleOnly = $('styleOnly').checked;
+  const tagValues = (v, key) => (v.VoiceTag && typeof v.VoiceTag === 'object') ? v.VoiceTag[key] : [];
+  const hasValue = (value, selected) => {
+    const list = Array.isArray(value) ? value : (value ? [value] : []);
+    return !selected || list.includes(selected);
+  };
 
   const filtered = state.voices.filter(v => {
     if (loc && v.Locale !== loc) return false;
     if (gender && v.Gender !== gender) return false;
     if (type && v.VoiceType !== type) return false;
+    if (!hasValue(v.RolePlayList, role)) return false;
+    if (status && v.Status !== status) return false;
+    if (!hasValue(tagValues(v, 'TailoredScenarios'), scenario)) return false;
+    if (!hasValue(tagValues(v, 'VoicePersonalities'), personality)) return false;
+    if (!hasValue(tagValues(v, 'ModelSeries'), model)) return false;
+    if (!hasValue(tagValues(v, 'Source'), source)) return false;
     if (styleOnly && !(v.StyleList && v.StyleList.length)) return false;
     if (q) {
-      const hay = (v.ShortName + ' ' + (v.LocalName||'') + ' ' + (v.DisplayName||'') + ' ' + v.Locale + ' ' + (v.StyleList||[]).join(' ')).toLowerCase();
+      const searchFields = [
+        v.ShortName, v.LocalName, v.DisplayName, v.Locale, v.LocaleName,
+        v.StyleList, v.RolePlayList,
+        tagValues(v, 'TailoredScenarios'), tagValues(v, 'VoicePersonalities'),
+        tagValues(v, 'ModelSeries'), tagValues(v, 'Source'),
+      ];
+      const hay = searchFields.flatMap(value => Array.isArray(value) ? value : [value])
+        .filter(Boolean).join(' ').toLowerCase();
       if (!hay.includes(q)) return false;
     }
     return true;
@@ -851,7 +924,21 @@ async function init() {
   $('localeFilter').addEventListener('change', renderVoices);
   $('genderFilter').addEventListener('change', renderVoices);
   $('typeFilter').addEventListener('change', renderVoices);
+  $('roleFilter').addEventListener('change', renderVoices);
+  $('statusFilter').addEventListener('change', renderVoices);
+  $('scenarioFilter').addEventListener('change', renderVoices);
+  $('personalityFilter').addEventListener('change', renderVoices);
+  $('modelFilter').addEventListener('change', renderVoices);
+  $('sourceFilter').addEventListener('change', renderVoices);
   $('styleOnly').addEventListener('change', renderVoices);
+  $('resetFilters').addEventListener('click', () => {
+    $('voiceSearch').value = '';
+    ['localeFilter', 'genderFilter', 'typeFilter', 'roleFilter', 'statusFilter',
+      'scenarioFilter', 'personalityFilter', 'modelFilter', 'sourceFilter']
+      .forEach(id => { $(id).value = ''; });
+    $('styleOnly').checked = false;
+    renderVoices();
+  });
   $('toggleFilters').onclick = () => {
     const bar = $('filterBar');
     bar.classList.toggle('hidden');

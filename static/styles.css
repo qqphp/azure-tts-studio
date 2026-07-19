@@ -435,6 +435,10 @@ button { font-family: inherit; cursor: pointer; }
   white-space: nowrap;
 }
 .check-line input { accent-color: var(--accent); }
+.filter-actions {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 8px;
+}
 
 .voice-tag {
   font-family: var(--mono);

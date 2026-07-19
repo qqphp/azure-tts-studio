@@ -71,9 +71,36 @@
           <option value="Standard">Standard</option>
         </select>
       </div>
-      <label class="check-line" title="只显示支持说话风格的音色">
-        <input id="styleOnly" type="checkbox" /> 仅支持风格
-      </label>
+      <div class="filter-row">
+        <select id="roleFilter" class="select-mini" title="按年龄感或角色筛选">
+          <option value="">全部年龄感 / 角色</option>
+        </select>
+        <select id="statusFilter" class="select-mini" title="按发布状态筛选">
+          <option value="">全部状态</option>
+        </select>
+      </div>
+      <div class="filter-row">
+        <select id="scenarioFilter" class="select-mini" title="按适用场景筛选">
+          <option value="">全部使用场景</option>
+        </select>
+        <select id="personalityFilter" class="select-mini" title="按音色人格筛选">
+          <option value="">全部音色人格</option>
+        </select>
+      </div>
+      <div class="filter-row">
+        <select id="modelFilter" class="select-mini" title="按模型系列筛选">
+          <option value="">全部模型系列</option>
+        </select>
+        <select id="sourceFilter" class="select-mini" title="按模型来源筛选">
+          <option value="">全部模型来源</option>
+        </select>
+      </div>
+      <div class="filter-actions">
+        <label class="check-line" title="只显示支持说话风格的音色">
+          <input id="styleOnly" type="checkbox" /> 仅支持风格
+        </label>
+        <button id="resetFilters" class="ghost-btn tiny" type="button">重置</button>
+      </div>
     </div>
     <div id="voiceList" class="voice-list">
       <div class="empty-hint">配置好设置并测试连接后,音色会出现在这里。</div>
