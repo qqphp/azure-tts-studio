@@ -2,7 +2,7 @@
 
 经典 Azure AI Speech 资源(AIServices)REST 形式:
 - 列出音色:GET {endpoint}/tts/cognitiveservices/voices/list
-- 合成语音:POST {endpoint}/cognitiveservices/v1   body 为 SSML
+- 合成语音:POST {endpoint}/tts/cognitiveservices/v1   body 为 SSML
 
 提供:
 - GET  /                  前端 UI
@@ -112,16 +112,20 @@ def normalize_endpoint(cfg: dict[str, Any]) -> str:
     return (cfg.get("endpoint") or "").strip().rstrip("/")
 
 
+def speech_api_base(cfg: dict[str, Any]) -> str:
+    """返回 Speech REST API 的资源基地址。"""
+    base = normalize_endpoint(cfg)
+    if ".tts.speech." in base.lower() or base.lower().endswith("/tts"):
+        return base
+    return base + "/tts"
+
+
 def tts_endpoint(cfg: dict[str, Any]) -> str:
-    return normalize_endpoint(cfg) + "/cognitiveservices/v1"
+    return speech_api_base(cfg) + "/cognitiveservices/v1"
 
 
 def voices_endpoint(cfg: dict[str, Any]) -> str:
-    base = normalize_endpoint(cfg)
-    # 区域专用 TTS 域名沿用旧路径；Foundry / AI Services 资源端点需加 /tts。
-    if ".tts.speech." in base.lower():
-        return base + "/cognitiveservices/voices/list"
-    return base + "/tts/cognitiveservices/voices/list"
+    return speech_api_base(cfg) + "/cognitiveservices/voices/list"
 
 
 def auth_headers(cfg: dict[str, Any]) -> dict[str, str]:

@@ -45,6 +45,14 @@ def build_ssml(text: str, voice: str) -> str:
     )
 
 
+def tts_url(endpoint: str) -> str:
+    """兼容 Foundry/AI Services 资源端点与区域专用 TTS 域名。"""
+    base = endpoint.rstrip("/")
+    if ".tts.speech." not in base.lower() and not base.lower().endswith("/tts"):
+        base += "/tts"
+    return f"{base}/cognitiveservices/v1"
+
+
 def synthesize(
     endpoint: str,
     api_key: str,
@@ -54,7 +62,7 @@ def synthesize(
     output_path: Path,
 ) -> None:
     """请求 Azure Speech Text to Speech 并将返回音频写入文件。"""
-    url = f"{endpoint.rstrip('/')}/cognitiveservices/v1"
+    url = tts_url(endpoint)
     headers = {
         "Ocp-Apim-Subscription-Key": api_key,
         "Content-Type": "application/ssml+xml",
