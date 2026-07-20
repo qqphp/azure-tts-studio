@@ -23,7 +23,9 @@ def favorite_items() -> list[dict[str, Any]]:
 @router.put("/voices/favorites/{short_name}")
 async def add_voice_favorite(short_name: str, voice: dict[str, Any] | None = None) -> dict[str, object]:
     try:
-        return {"ok": True, "short_name": add_favorite(short_name, voice)}
+        if voice is None:
+            raise ValueError("请求缺少音色数据")
+        return {"ok": True, "short_name": add_favorite(voice)}
     except ValueError as exc:
         from fastapi import HTTPException
         raise HTTPException(400, str(exc)) from exc

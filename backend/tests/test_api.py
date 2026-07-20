@@ -66,10 +66,10 @@ class ApiRegressionTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp_dir, patch.object(database, "DATABASE_PATH", Path(temp_dir) / "studio.db"):
             invalid = self.client.post("/api/editor/roles", json={"name": "   ", "voice": {"ShortName": "zh-CN-Mei:MAI-Voice-2"}})
             self.assertEqual(invalid.status_code, 400)
-            created = self.client.post("/api/editor/roles", json={"name": "旁白", "voice": {"ShortName": "zh-CN-Mei:MAI-Voice-2", "LocalName": "Mei"}})
+            created = self.client.post("/api/editor/roles", json={"name": "旁白", "voice": {"ShortName": "zh-CN-Mei:MAI-Voice-2.preview", "LocalName": "Mei"}})
             self.assertEqual(created.status_code, 201)
             self.assertEqual(created.json()["name"], "旁白")
-            self.assertEqual(created.json()["voice"]["ShortName"], "zh-CN-Mei:MAI-Voice-2")
+            self.assertEqual(created.json()["voice"]["ShortName"], "zh-CN-Mei:MAI-Voice-2.preview")
             self.assertEqual(created.json()["rate"], "medium")
             updated = self.client.patch(f"/api/editor/roles/{created.json()['id']}", json={"name": "主持人", "rate": "fast"})
             self.assertEqual(updated.status_code, 200)

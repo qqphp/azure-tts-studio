@@ -23,17 +23,18 @@ class LocalRepositoryTests(unittest.TestCase):
 
     def test_voice_favorites_round_trip_uses_sqlite(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir, patch.object(database, "DATABASE_PATH", Path(temp_dir) / "studio.db"):
-            self.assertEqual(voices_repository.add_favorite("zh-CN-Mei:MAI-Voice-2"), "zh-CN-Mei:MAI-Voice-2")
-            self.assertEqual(voices_repository.list_favorites(), ["zh-CN-Mei:MAI-Voice-2"])
-            self.assertTrue(voices_repository.remove_favorite("zh-CN-Mei:MAI-Voice-2"))
+            short_name = "zh-CN-Mei:MAI-Voice-2.preview"
+            self.assertEqual(voices_repository.add_favorite({"ShortName": short_name, "LocalName": "Mei"}), short_name)
+            self.assertEqual(voices_repository.list_favorites(), [short_name])
+            self.assertTrue(voices_repository.remove_favorite(short_name))
             self.assertEqual(voices_repository.list_favorites(), [])
 
     def test_editor_roles_round_trip_uses_sqlite(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir, patch.object(database, "DATABASE_PATH", Path(temp_dir) / "studio.db"):
-            role = editor_roles_repository.create_role("  旁白  ", {"ShortName": "zh-CN-Mei:MAI-Voice-2", "LocalName": "Mei"})
+            role = editor_roles_repository.create_role("  旁白  ", {"ShortName": "zh-CN-Mei:MAI-Voice-2.preview", "LocalName": "Mei"})
             self.assertEqual(role["name"], "旁白")
             self.assertEqual(role["rate"], "medium")
-            self.assertEqual(role["voice"]["ShortName"], "zh-CN-Mei:MAI-Voice-2")
+            self.assertEqual(role["voice"]["ShortName"], "zh-CN-Mei:MAI-Voice-2.preview")
             self.assertEqual(editor_roles_repository.list_roles(), [role])
             updated = editor_roles_repository.update_role(role["id"], "主持人", "x-fast")
             self.assertEqual(updated["name"], "主持人")

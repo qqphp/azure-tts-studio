@@ -6,8 +6,6 @@ import time
 from typing import Any
 
 from app.core.database import connection
-from app.modules.voices.repository import clean_short_name
-
 ALLOWED_RATES = {"x-slow", "slow", "medium", "fast", "x-fast"}
 
 
@@ -48,9 +46,9 @@ def create_role(name: object, voice: dict[str, Any], rate: object = "medium") ->
         raise ValueError("角色名不能为空")
     if len(clean_name) > 80:
         raise ValueError("角色名不能超过 80 个字符")
-    short_name = clean_short_name(voice.get("ShortName"))
-    if not short_name:
-        raise ValueError("请选择有效音色")
+    short_name = voice.get("ShortName")
+    if not isinstance(short_name, str) or not short_name:
+        raise ValueError("音色数据缺少 ShortName")
     clean_rate = _clean_rate(rate)
     voice_snapshot = {**voice, "ShortName": short_name}
     created_at = int(time.time())
@@ -74,9 +72,9 @@ def update_role(role_id: int, name: object, rate: object, voice: dict[str, Any] 
         if voice is None:
             result = db.execute("UPDATE editor_roles SET name = ?, rate = ? WHERE id = ?", (clean_name, clean_rate, role_id))
         else:
-            short_name = clean_short_name(voice.get("ShortName"))
-            if not short_name:
-                raise ValueError("请选择有效音色")
+            short_name = voice.get("ShortName")
+            if not isinstance(short_name, str) or not short_name:
+                raise ValueError("音色数据缺少 ShortName")
             voice_snapshot = {**voice, "ShortName": short_name}
             result = db.execute(
                 "UPDATE editor_roles SET name = ?, rate = ?, short_name = ?, voice_json = ? WHERE id = ?",
