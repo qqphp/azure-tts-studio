@@ -11,6 +11,9 @@
 
 .history-table-head, .history-row { grid-template-columns: 28px 2.2fr 1.3fr 1.35fr .55fr; }
 .history-list-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 14px 20px; border-bottom: 1px solid #2a3147; background: rgba(23, 28, 43, .72); }
+.field-label { display: block; }
+.required-mark { color: #ff8d9d; }
+.field-hint { display: block; margin-top: 6px; color: #858fa8; font-size: 11px; font-weight: 500; line-height: 1.5; }
 .history-selection { display: flex; align-items: center; gap: 16px; }
 .history-total { color: #7f8aa4; font-size: 12px; }
 .history-toolbar { display: flex; align-items: center; gap: 9px; flex-wrap: wrap; }
