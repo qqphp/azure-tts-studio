@@ -6,6 +6,10 @@ export interface Voice {
   LocaleName?: string;
   Gender?: string;
   StyleList?: string[];
+  VoiceType?: string;
+  RolePlayList?: string[];
+  Status?: string;
+  VoiceTag?: Record<string, string | string[] | undefined>;
 }
 
 export interface HistoryItem {
