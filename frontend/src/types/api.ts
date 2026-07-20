@@ -25,6 +25,7 @@ export interface Settings {
   apiKey: string;
   defaultVoice: string;
   outputFormat: string;
+  theme?: string;
   llm?: { provider?: string; base?: string; apiKey?: string; defaultModel?: string; timeout?: number };
 }
 

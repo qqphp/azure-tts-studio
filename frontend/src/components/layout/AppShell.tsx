@@ -2,6 +2,10 @@ import { History, Mic2, Settings, SlidersHorizontal, Sparkles, Volume2 } from 'l
 import { NavLink, Outlet } from 'react-router-dom';
 import { AudioPlayer } from '../audio/AudioPlayer';
 import { usePlayerStore } from '../../stores/player-store';
+import { useQuery } from '@tanstack/react-query';
+import { useEffect } from 'react';
+import { api } from '../../services/api';
+import { applyTheme } from '../../theme';
 
 const navItems = [
   { to: '/', label: '工作台', icon: Mic2, end: true },
@@ -12,6 +16,8 @@ const navItems = [
 
 export function AppShell() {
   const hasAudioPlayer = usePlayerStore((state) => Boolean(state.source));
+  const { data: settings } = useQuery({ queryKey: ['settings'], queryFn: api.settings });
+  useEffect(() => applyTheme(settings?.theme), [settings?.theme]);
   return <div className={`app-shell ${hasAudioPlayer ? 'has-audio-player' : ''}`}>
     <aside className="sidebar">
       <div className="brand"><span className="brand-mark"><Sparkles size={18} /></span><span>Azure 配音工坊</span></div>

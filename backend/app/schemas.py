@@ -15,6 +15,7 @@ class SettingsPayload(BaseModel):
     defaultPitch: str | None = None
     defaultVolume: str | None = None
     outputFormat: str | None = None
+    theme: str | None = None
     llm: dict[str, Any] | None = None
 
 

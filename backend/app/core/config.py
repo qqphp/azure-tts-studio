@@ -22,6 +22,7 @@ DEFAULT_CONFIG: dict[str, Any] = {
     "defaultPitch": "",
     "defaultVolume": "",
     "outputFormat": "audio-16khz-128kbitrate-mono-mp3",
+    "theme": "morning-tea",
     "llm": {
         "provider": "", "base": "", "apiKey": "", "defaultModel": "", "timeout": 60,
     },
