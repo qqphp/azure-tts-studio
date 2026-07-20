@@ -22,6 +22,8 @@ import base64
 import json
 import time
 import uuid
+import xml.etree.ElementTree as ET
+from xml.sax.saxutils import escape as xml_escape, quoteattr
 from pathlib import Path
 from typing import Any
 
@@ -146,7 +148,7 @@ def build_ssml(text: str, voice: str, params: dict[str, Any]) -> str:
     role = params.get("role") or ""
 
     def attr(name: str, val: str) -> str:
-        return f' {name}="{val}"' if val else ""
+        return f" {name}={quoteattr(str(val))}" if val else ""
 
     prosody = attr("rate", rate) + attr("pitch", pitch) + attr("volume", volume)
     express_as = ""
@@ -162,8 +164,8 @@ def build_ssml(text: str, voice: str, params: dict[str, Any]) -> str:
         'xmlns="http://www.w3.org/2001/10/synthesis" '
         'xmlns:mstts="http://www.w3.org/2001/mstts" '
         'xml:lang="zh-CN">'
-        f'<voice name="{voice}">'
-        f'{express_as}{prosody_open}{text}{prosody_close}{express_close}'
+        f'<voice name={quoteattr(str(voice))}>'
+        f'{express_as}{prosody_open}{xml_escape(text)}{prosody_close}{express_close}'
         '</voice></speak>'
     )
 
@@ -176,6 +178,78 @@ def mime_for_format(fmt: str) -> str:
     if "webm" in fmt:
         return "audio/webm"
     return "audio/wav"
+
+
+SSML_NS = "http://www.w3.org/2001/10/synthesis"
+XML_NS = "http://www.w3.org/XML/1998/namespace"
+
+
+def validate_ssml_document(ssml: str) -> dict[str, Any]:
+    """做不会改变用户文档的安全/结构校验，Azure 负责标签能力校验。"""
+    if not isinstance(ssml, str):
+        raise ValueError("SSML 必须是字符串")
+    ssml = ssml.strip()
+    if not ssml:
+        raise ValueError("SSML 不能为空")
+    size = len(ssml.encode("utf-8"))
+    upper = ssml.upper()
+    if "<!DOCTYPE" in upper or "<!ENTITY" in upper:
+        raise ValueError("SSML 不允许包含 DOCTYPE 或 ENTITY 声明")
+    try:
+        root = ET.fromstring(ssml)
+    except ET.ParseError as exc:
+        line, column = getattr(exc, "position", (None, None))
+        where = f"（第 {line} 行，第 {column + 1} 列）" if line is not None else ""
+        raise ValueError(f"XML 格式错误{where}：{exc}") from exc
+
+    if root.tag != f"{{{SSML_NS}}}speak":
+        raise ValueError('根元素必须是带 xmlns="http://www.w3.org/2001/10/synthesis" 的 <speak>')
+    if root.get("version") != "1.0":
+        raise ValueError('<speak> 必须设置 version="1.0"')
+    if not root.get(f"{{{XML_NS}}}lang"):
+        raise ValueError('<speak> 必须设置 xml:lang，例如 xml:lang="zh-CN"')
+
+    voices = root.findall(f"{{{SSML_NS}}}voice")
+    if not voices:
+        raise ValueError("<speak> 中至少需要一个直接子级 <voice>")
+    names: list[str] = []
+    for voice in voices:
+        name = (voice.get("name") or "").strip()
+        if not name:
+            raise ValueError("每个 <voice> 都必须设置 name 属性")
+        names.append(name)
+
+    plain_text = "".join(root.itertext()).strip()
+    return {
+        "ssml": ssml,
+        "bytes": size,
+        "characters": len(ssml),
+        "voices": names,
+        "voiceCount": len(names),
+        "textPreview": plain_text[:200] + ("…" if len(plain_text) > 200 else ""),
+        "textLength": len(plain_text),
+    }
+
+
+def save_audio_result(audio: bytes, fmt: str, meta: dict[str, Any]) -> dict[str, Any]:
+    meta = {
+        "id": uuid.uuid4().hex[:12],
+        "ts": int(time.time()),
+        "size": len(audio),
+        "format": fmt,
+        **meta,
+    }
+    (HISTORY_DIR / f"{meta['id']}.bin").write_bytes(audio)
+    (HISTORY_DIR / f"{meta['id']}.json").write_text(
+        json.dumps(meta, ensure_ascii=False), "utf-8"
+    )
+    return {
+        "ok": True,
+        "id": meta["id"],
+        "audio_base64": base64.b64encode(audio).decode("ascii"),
+        "mime": mime_for_format(fmt),
+        "meta": meta,
+    }
 
 
 # ----------------------------- 路由 ---------------------------------------
@@ -301,26 +375,67 @@ async def speak(req: Request):
             audio = b"".join(parts)
 
     meta = {
-        "id": uuid.uuid4().hex[:12],
-        "ts": int(time.time()),
         "voice": voice,
         "params": params,
         "text": text if len(text) <= 200 else text[:200] + "…",
         "text_len": len(text),
         "chunks": len(chunks),
-        "size": len(audio),
-        "format": fmt,
+        "mode": "quick",
     }
-    (HISTORY_DIR / f"{meta['id']}.bin").write_bytes(audio)
-    (HISTORY_DIR / f"{meta['id']}.json").write_text(json.dumps(meta, ensure_ascii=False), "utf-8")
+    return save_audio_result(audio, fmt, meta)
 
-    return {
-        "ok": True,
-        "id": meta["id"],
-        "audio_base64": base64.b64encode(audio).decode("ascii"),
-        "mime": mime_for_format(fmt),
-        "meta": meta,
-    }
+
+@app.post("/api/ssml/validate")
+async def validate_ssml(req: Request):
+    body = await req.json()
+    if not isinstance(body, dict):
+        raise HTTPException(400, "请求体必须是 JSON 对象")
+    try:
+        info = validate_ssml_document(body.get("ssml") or "")
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
+    return {"ok": True, **{k: v for k, v in info.items() if k != "ssml"}}
+
+
+@app.post("/api/speak-ssml")
+async def speak_ssml(req: Request):
+    """校验后将完整 SSML 原样提交 Azure；不能拆分，否则会破坏 XML 结构。"""
+    cfg = load_config()
+    if not cfg.get("apiKey"):
+        raise HTTPException(401, "未配置 apiKey")
+    if not cfg.get("endpoint"):
+        raise HTTPException(400, "未配置 endpoint")
+    body = await req.json()
+    if not isinstance(body, dict):
+        raise HTTPException(400, "请求体必须是 JSON 对象")
+    try:
+        info = validate_ssml_document(body.get("ssml") or "")
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
+
+    fmt = cfg.get("outputFormat", DEFAULT_CONFIG["outputFormat"])
+    cfg["outputFormat"] = fmt
+    async with httpx.AsyncClient(timeout=120.0) as cli:
+        response = await cli.post(
+            tts_endpoint(cfg), headers=auth_headers(cfg),
+            content=info["ssml"].encode("utf-8"),
+        )
+    if response.status_code != 200:
+        raise HTTPException(response.status_code, f"Azure 错误: {response.text[:500]}")
+
+    voice_label = info["voices"][0]
+    if info["voiceCount"] > 1:
+        voice_label += f" 等 {info['voiceCount']} 个音色"
+    return save_audio_result(response.content, fmt, {
+        "voice": voice_label,
+        "voices": info["voices"],
+        "params": {"ssml": True},
+        "text": info["textPreview"] or "[SSML 音频内容]",
+        "text_len": info["textLength"],
+        "ssml_chars": info["characters"],
+        "chunks": 1,
+        "mode": "professional",
+    })
 
 
 @app.get("/api/history")

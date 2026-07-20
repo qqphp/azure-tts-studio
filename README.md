@@ -13,6 +13,10 @@
   - 调语速 / 音调 / 音量 (滑块,留空即用默认)
   - 选择说话风格 (mstts:express-as,自动按音色支持的 StyleList 动态填充)
   - 选择角色 (role,OLT / Young / Senior 等)
+- 顶部模式菜单:
+  - **快速配音**保留原有文本、参数和 AI 检测工作流
+  - **专业配音**可编辑完整 Azure SSML，支持多音色、`break`、`prosody`、`mstts:express-as`、`say-as`、段落和句子等标签
+  - 提供常用标签插入工具、XML/SSML 结构检查、字符/字节统计；完整 SSML 会原样提交 Azure，不做破坏结构的自动分段
 - 音频播放条:页面底部胶囊式播放条,带频谱可视化动画,显示时长
 - 下载音频 / 历史记录 (本机持久化,可单条删除)
 
@@ -55,6 +59,8 @@ python main.py
 REST 路径说明:本后端固定走经典 Azure AI Speech REST 形式:
 - 列出音色:`GET {endpoint}/cognitiveservices/voices/list`
 - 合成语音:`POST {endpoint}/cognitiveservices/v1`(body 为 SSML)
+- 本地 SSML 校验:`POST /api/ssml/validate`，JSON body 为 `{ "ssml": "<speak ...>...</speak>" }`
+- 专业 SSML 合成:`POST /api/speak-ssml`，JSON body 同上
 - `endpoint` 直接用填入的请求地址(去尾部 `/`),可填自定义资源端点(如 `https://xxx.services.ai.azure.com/`)或区域专用 TTS 域名(如 `https://eastus.tts.speech.microsoft.com`);无需 region 字段。
 
 ## 音色速查

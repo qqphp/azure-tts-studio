@@ -25,6 +25,10 @@
     <h1>Azure 配音工坊</h1>
     <span class="brand-tag">TTS · STUDIO</span>
   </div>
+  <nav class="mode-nav" aria-label="配音模式">
+    <button class="mode-tab active" type="button" data-mode="quick">快速配音</button>
+    <button class="mode-tab" type="button" data-mode="professional">专业配音</button>
+  </nav>
   <div class="topbar-right">
     <span id="connStatus" class="status-chip unknown" title="连接状态">
       <span class="dot"></span><span class="label">未连接</span>
@@ -111,7 +115,7 @@
   </section>
 
   <!-- 右:合成工作台 -->
-  <section class="panel studio-panel">
+  <section id="quickPanel" class="panel studio-panel">
     <div class="panel-head">
       <h2>合成</h2>
       <div class="panel-tools">
@@ -169,6 +173,61 @@
         <span id="studioStatus" class="studio-status"></span>
       </div>
       <div id="aiDetectResult" class="ai-result hidden"></div>
+    </div>
+  </section>
+
+  <!-- 专业 SSML 工作台（由顶部菜单切换） -->
+  <section id="professionalPanel" class="panel studio-panel professional-panel hidden">
+    <div class="panel-head">
+      <h2>SSML 专业合成</h2>
+      <div class="panel-tools">
+        <span id="proSelectedVoiceTag" class="voice-tag">模板音色 · zh-CN-XiaoxiaoNeural</span>
+        <span id="proValidation" class="validation-chip idle">待校验</span>
+      </div>
+    </div>
+    <div class="studio-body pro-body">
+      <div class="pro-intro">
+        <div>
+          <strong>直接编辑 Azure SSML</strong>
+          <span>支持多音色、停顿、韵律、风格、角色和读法控制；合成前会检查 XML 结构。</span>
+        </div>
+        <button id="proResetTemplate" class="ghost-btn tiny" type="button">恢复基础模板</button>
+      </div>
+
+      <div class="ssml-toolbar" aria-label="SSML 标签工具">
+        <button type="button" class="snippet-btn" data-snippet="break">+ 停顿</button>
+        <button type="button" class="snippet-btn" data-snippet="prosody">+ 韵律</button>
+        <button type="button" class="snippet-btn" data-snippet="style">+ 风格 / 角色</button>
+        <button type="button" class="snippet-btn" data-snippet="say-as">+ 指定读法</button>
+        <button type="button" class="snippet-btn" data-snippet="sentence">+ 句子</button>
+        <button type="button" class="snippet-btn" data-snippet="voice">+ 音色段</button>
+      </div>
+
+      <div class="ssml-editor-wrap">
+        <div class="editor-caption">
+          <span>SSML XML</span>
+          <span id="proEditorStats">0 字符 · 0 bytes</span>
+        </div>
+        <textarea id="ssmlInput" class="text-area ssml-editor" rows="18"
+          spellcheck="false" aria-label="SSML 编辑器"></textarea>
+      </div>
+      <div class="ssml-help">
+        <span>提示：选择一段文本后点击工具按钮，可用对应标签包裹。特殊字符请写为 <code>&amp;amp;</code>、<code>&amp;lt;</code>、<code>&amp;gt;</code>。</span>
+        <a href="https://learn.microsoft.com/azure/ai-services/speech-service/speech-synthesis-markup" target="_blank" rel="noopener noreferrer">Azure SSML 文档 ↗</a>
+      </div>
+
+      <div class="action-row">
+        <button id="validateSsmlBtn" class="ghost-btn" type="button">检查 SSML</button>
+        <button id="speakSsmlBtn" class="primary-btn" type="button" disabled>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 5 6 9H2v6h4l5 4z"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
+          <span>专业合成</span>
+        </button>
+        <button id="proDownloadBtn" class="ghost-btn" type="button" disabled title="下载当前合成音频">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v12m0 0l-4-4m4 4l4-4M5 21h14"/></svg>
+          <span>下载</span>
+        </button>
+        <span id="proStudioStatus" class="studio-status"></span>
+      </div>
     </div>
   </section>
 

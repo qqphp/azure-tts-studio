@@ -6,6 +6,8 @@ const $ = (id) => document.getElementById(id);
 const state = {
   voices: [],
   selectedVoice: null,
+  mode: 'quick',
+  ssmlValid: false,
   currentAudio: null,   // HTMLAudioElement
   currentBlob: null,
   currentMeta: null,
@@ -433,6 +435,7 @@ function renderVoices() {
 function selectVoice(id) {
   state.selectedVoice = id;
   $('selectedVoiceTag').textContent = id;
+  $('proSelectedVoiceTag').textContent = `工具音色 · ${id}`;
   renderVoices();
   updateStyleOptions();
   updateRoleOptions();
@@ -544,6 +547,136 @@ const STYLE_CN = {
 
 function updateSpeakBtn() {
   $('speakBtn').disabled = !state.selectedVoice || !$('textInput').value.trim();
+}
+
+/* ------------------------------ 专业 SSML ------------------------------ */
+function currentProVoice() {
+  return state.selectedVoice || 'zh-CN-XiaoxiaoNeural';
+}
+
+function ssmlTemplate() {
+  const voice = currentProVoice();
+  const locale = (voice.match(/^[a-z]{2,3}-[A-Z]{2}/) || ['zh-CN'])[0];
+  return `<speak version="1.0"
+  xmlns="http://www.w3.org/2001/10/synthesis"
+  xmlns:mstts="http://www.w3.org/2001/mstts"
+  xml:lang="${locale}">
+  <voice name="${voice}">
+    <p>
+      <s>欢迎使用专业配音。你可以选中文本，再用上方工具添加 SSML 标签。</s>
+    </p>
+  </voice>
+</speak>`;
+}
+
+function setMode(mode) {
+  state.mode = mode === 'professional' ? 'professional' : 'quick';
+  $('quickPanel').classList.toggle('hidden', state.mode !== 'quick');
+  $('professionalPanel').classList.toggle('hidden', state.mode !== 'professional');
+  document.querySelectorAll('.mode-tab').forEach(btn => {
+    const active = btn.dataset.mode === state.mode;
+    btn.classList.toggle('active', active);
+    if (active) btn.setAttribute('aria-current', 'page');
+    else btn.removeAttribute('aria-current');
+  });
+}
+
+function markSsmlDirty() {
+  state.ssmlValid = false;
+  const chip = $('proValidation');
+  chip.className = 'validation-chip idle';
+  chip.textContent = '待校验';
+  $('proStudioStatus').textContent = '';
+  $('speakSsmlBtn').disabled = !$('ssmlInput').value.trim();
+  const value = $('ssmlInput').value;
+  $('proEditorStats').textContent = `${value.length} 字符 · ${new TextEncoder().encode(value).length} bytes`;
+}
+
+function resetSsmlTemplate(ask = true) {
+  const next = ssmlTemplate();
+  if (ask && $('ssmlInput').value.trim() && $('ssmlInput').value !== next &&
+      !window.confirm('恢复模板会覆盖当前 SSML，确定继续吗？')) return;
+  $('ssmlInput').value = next;
+  markSsmlDirty();
+}
+
+function insertSsmlSnippet(kind) {
+  const editor = $('ssmlInput');
+  const start = editor.selectionStart;
+  const end = editor.selectionEnd;
+  const selected = editor.value.slice(start, end);
+  const content = selected || '在此输入文本';
+  const voice = currentProVoice();
+  const style = $('style').value || 'cheerful';
+  const role = $('role').value;
+  const roleAttr = role ? ` role="${role}"` : '';
+  const snippets = {
+    break: { text: '<break time="500ms"/>', offset: 0 },
+    prosody: { open: '<prosody rate="+10%" pitch="+2st" volume="+5%">', close: '</prosody>' },
+    style: { open: `<mstts:express-as style="${style}" styledegree="1"${roleAttr}>`, close: '</mstts:express-as>' },
+    'say-as': { open: '<say-as interpret-as="date" format="ymd">', close: '</say-as>' },
+    sentence: { open: '<s>', close: '</s>' },
+    voice: { open: `<voice name="${voice}">`, close: '</voice>' },
+  };
+  const item = snippets[kind];
+  if (!item) return;
+  const replacement = item.text || `${item.open}${content}${item.close}`;
+  editor.setRangeText(replacement, start, end, 'end');
+  if (!selected && !item.text) {
+    editor.setSelectionRange(start + item.open.length, start + item.open.length + content.length);
+  }
+  editor.focus();
+  markSsmlDirty();
+}
+
+async function validateProfessionalSsml(showToast = true) {
+  const ssml = $('ssmlInput').value.trim();
+  if (!ssml) { toast('请先填写 SSML', 'err'); return null; }
+  const chip = $('proValidation');
+  chip.className = 'validation-chip idle';
+  chip.textContent = '检查中…';
+  try {
+    const result = await api('/api/ssml/validate', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ssml }),
+    });
+    state.ssmlValid = true;
+    chip.className = 'validation-chip ok';
+    chip.textContent = `结构正确 · ${result.voiceCount} 音色`;
+    $('proStudioStatus').textContent = '';
+    if (showToast) toast('SSML 结构检查通过', 'ok');
+    return result;
+  } catch (e) {
+    state.ssmlValid = false;
+    chip.className = 'validation-chip err';
+    chip.textContent = '结构有误';
+    $('proStudioStatus').textContent = e.message;
+    toast(e.message, 'err');
+    return null;
+  }
+}
+
+async function speakProfessional() {
+  const valid = await validateProfessionalSsml(false);
+  if (!valid) return;
+  const btn = $('speakSsmlBtn');
+  btn.disabled = true;
+  $('proStudioStatus').textContent = '专业合成中…';
+  try {
+    const res = await api('/api/speak-ssml', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ssml: $('ssmlInput').value.trim() }),
+    });
+    playAudio(res.audio_base64, res.mime, res.meta);
+    $('proStudioStatus').textContent = `✓ ${res.meta.size} bytes · ${valid.voiceCount} 个音色`;
+    $('proDownloadBtn').disabled = false;
+    loadHistory();
+  } catch (e) {
+    $('proStudioStatus').textContent = '';
+    toast(e.message, 'err');
+  } finally {
+    btn.disabled = !$('ssmlInput').value.trim();
+  }
 }
 
 /* ------------------------------ 合成 ------------------------------ */
@@ -726,7 +859,7 @@ async function loadHistory() {
         </label>
         <div class="h-body">
           <div class="h-top">
-            <span class="h-voice">${h.voice}</span>
+            <span class="h-voice">${escapeHtml(h.voice || '未知音色')}</span>
             <span class="h-time">${new Date(h.ts * 1000).toLocaleString('zh-CN', {hour12:false}).replace(/\//g,'-')}</span>
           </div>
           <div class="h-text">${escapeHtml(h.text)}</div>
@@ -887,6 +1020,8 @@ function initTheme() {
 
 async function init() {
   initTheme();
+  resetSsmlTemplate(false);
+  setMode('quick');
   // 事件绑定
   $('settingsBtn').onclick = openSettings;
   $('closeSettings').onclick = closeSettings;
@@ -956,6 +1091,28 @@ async function init() {
   };
   $('textInput').addEventListener('input', updateSpeakBtn);
   $('speakBtn').onclick = speak;
+  document.querySelectorAll('.mode-tab').forEach(btn => {
+    btn.onclick = () => setMode(btn.dataset.mode);
+  });
+  $('ssmlInput').addEventListener('input', markSsmlDirty);
+  $('ssmlInput').addEventListener('keydown', e => {
+    if (e.key === 'Tab') {
+      e.preventDefault();
+      const pos = e.currentTarget.selectionStart;
+      e.currentTarget.setRangeText('  ', pos, e.currentTarget.selectionEnd, 'end');
+      markSsmlDirty();
+    } else if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+      e.preventDefault();
+      speakProfessional();
+    }
+  });
+  document.querySelectorAll('.snippet-btn').forEach(btn => {
+    btn.onclick = () => insertSsmlSnippet(btn.dataset.snippet);
+  });
+  $('proResetTemplate').onclick = () => resetSsmlTemplate(true);
+  $('validateSsmlBtn').onclick = () => validateProfessionalSsml(true);
+  $('speakSsmlBtn').onclick = speakProfessional;
+  $('proDownloadBtn').onclick = downloadAudio;
   $('downloadBtn').onclick = downloadAudio;
   $('playToggle').onclick = togglePlay;
   $('refreshHistory').onclick = loadHistory;
