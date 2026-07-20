@@ -26,6 +26,14 @@
 @media (max-width: 860px) { .history-row { grid-template-columns: 28px 1fr auto; }.history-row > span:nth-child(3), .history-row > span:nth-child(4) { display: none; } }
 @media (max-width: 560px) { .history-toolbar { width: 100%; }.history-toolbar .secondary-button { flex: 1; } }
 @media (max-width: 560px) { .history-list-toolbar { align-items: stretch; flex-direction: column; gap: 12px; padding: 13px 16px; }.history-toolbar { justify-content: stretch; }.history-toolbar .secondary-button { flex: 1; } }
+.page-content:has(.history-card) { height: 100vh; min-height: 0; overflow: hidden; display: flex; flex-direction: column; }
+.page-content:has(.history-card) .history-card { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.history-rows { flex: 1; min-height: 0; overflow-y: auto; }
+.history-pagination { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 20px; border-top: 1px solid #2a3147; color: #8993ab; font-size: 12px; }
+.history-pagination > div { display: flex; gap: 6px; }
+.pagination-button { display: grid; place-items: center; width: 30px; height: 30px; border: 1px solid #343c55; border-radius: 8px; background: #242a3e; color: #cbd2e7; }
+.pagination-button:disabled { opacity: .4; }
+@media (max-width: 860px) { .page-content:has(.history-card) { height: auto; min-height: 0; overflow: visible; display: block; }.page-content:has(.history-card) .history-card { min-height: 0; }.history-rows { overflow: visible; } }
 
 .expression-selects { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px 20px; }
 .expression-selects .style-select { min-width: 0; width: 100%; grid-column: auto; }
@@ -64,6 +72,7 @@
 .page-content:has(.studio-layout) { height: 100vh; min-height: 0; overflow: hidden; display: flex; flex-direction: column; }
 .page-content:has(.studio-layout) .studio-layout { flex: 1; min-height: 0; }
 .app-shell.has-audio-player .page-content:has(.studio-layout) { padding-bottom: 108px; }
+.app-shell.has-audio-player .page-content:has(.history-card) { padding-bottom: 108px; }
 .studio-layout .voice-picker { display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
 .studio-layout .voice-list { flex: 1; min-height: 0; max-height: none; overflow-y: auto; align-content: start; grid-auto-rows: 74px; }
 .studio-layout .voice-list { row-gap: 8px; }
