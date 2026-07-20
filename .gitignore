@@ -14,3 +14,10 @@ __pycache__/
 # 临时
 .DS_Store
 Thumbs.db
+
+# React / Vite
+frontend/node_modules/
+frontend/dist/
+frontend/*.tsbuildinfo
+data/*.db
+data/*.db-*

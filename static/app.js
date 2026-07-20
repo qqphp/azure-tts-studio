@@ -1,18 +1,8 @@
-/* Azure 配音工坊 前端逻辑 */
-'use strict';
-
-const $ = (id) => document.getElementById(id);
-
-const state = {
-  voices: [],
-  selectedVoice: null,
-  mode: 'quick',
-  ssmlValid: false,
-  currentAudio: null,   // HTMLAudioElement
-  currentBlob: null,
-  currentMeta: null,
-  historyLoaded: false,
-};
+/* Application composition. Shared primitives and feature code live in modules. */
+import { $, api, formatTime as fmtTime, setConnection as setConn, state, toast } from './modules/core.js';
+import { initializeHistory, loadHistory } from './modules/history.js';
+import { downloadCurrentAudio as downloadAudio, initializePlayer, playAudio } from './modules/media-player.js';
+import { initializeTheme } from './modules/theme.js';
 
 /* Azure Locale 短码 -> 友好显示 (中文名 + 语言代码). 未命中的回退为纯代码. */
 const LOCALE_NAMES = {
@@ -44,38 +34,6 @@ const LOCALE_NAMES = {
   'de-DE':'德语 (de-DE)',
 };
 function localeName(code) { return LOCALE_NAMES[code] || code; }
-
-/* ------------------------------ 工具 ------------------------------ */
-async function api(path, opts = {}) {
-  const r = await fetch(path, opts);
-  if (!r.ok) {
-    let msg = `HTTP ${r.status}`;
-    try { const j = await r.json(); msg = j.detail || j.message || msg; } catch {}
-    throw new Error(msg);
-  }
-  const ct = r.headers.get('content-type') || '';
-  return ct.includes('application/json') ? r.json() : r;
-}
-
-function toast(msg, type = '') {
-  const t = $('toast');
-  t.textContent = msg;
-  t.className = 'toast ' + type;
-  setTimeout(() => t.classList.add('hidden'), 2200);
-}
-
-function fmtTime(sec) {
-  sec = Math.max(0, Math.floor(sec));
-  const m = Math.floor(sec / 60);
-  const s = sec % 60;
-  return `${m}:${s.toString().padStart(2,'0')}`;
-}
-
-function setConn(status, label) {
-  const el = $('connStatus');
-  el.className = 'status-chip ' + status;
-  el.querySelector('.label').textContent = label;
-}
 
 /* ------------------------------ 设置弹窗 ------------------------------ */
 function openSettings() {
@@ -781,7 +739,7 @@ async function speak() {
   }
 }
 
-function playAudio(b64, mime, meta) {
+function legacyPlayAudio(b64, mime, meta) {
   const blob = base64ToBlob(b64, mime);
   state.currentBlob = blob;
   state.currentMeta = meta;
@@ -820,7 +778,7 @@ function base64ToBlob(b64, mime) {
   return new Blob([u8], { type: mime });
 }
 
-function togglePlay() {
+function legacyTogglePlay() {
   const a = state.currentAudio;
   if (!a) return;
   if (a.paused) a.play(); else a.pause();
@@ -829,7 +787,7 @@ function togglePlay() {
 function playIcon()  { return '<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>'; }
 function pauseIcon() { return '<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M6 4h4v16H6zM14 4h4v16h-4z"/></svg>'; }
 
-function downloadAudio() {
+function legacyDownloadAudio() {
   if (!state.currentBlob) return;
   const a = document.createElement('a');
   const ext = state.currentMeta?.format?.includes('mp3') ? 'mp3' :
@@ -842,7 +800,7 @@ function downloadAudio() {
 }
 
 /* ------------------------------ 历史 ------------------------------ */
-async function loadHistory() {
+async function legacyLoadHistory() {
   try {
     const list = await api('/api/history');
     const c = $('historyList');
@@ -920,7 +878,7 @@ function updateBatchBtn() {
   btn.textContent = ids.length ? `批量删除 (${ids.length})` : '批量删除';
 }
 
-async function batchDeleteHistory() {
+async function legacyBatchDeleteHistory() {
   const ids = selectedHistoryIds();
   if (!ids.length) return;
   if (!confirm(`确定删除选中的 ${ids.length} 条历史吗?此操作不可撤销。`)) return;
@@ -935,7 +893,7 @@ async function batchDeleteHistory() {
   } catch (e) { toast(e.message, 'err'); }
 }
 
-function toggleSelectAllHistory() {
+function legacyToggleSelectAllHistory() {
   const boxes = [...document.querySelectorAll('.h-sel')];
   if (!boxes.length) return;
   const allChecked = boxes.every(b => b.checked);
@@ -992,34 +950,8 @@ function bindRange(id, suffix) {
 }
 
 /* ------------------------------ 启动 ------------------------------ */
-/* ------------------------------ 主题切换 ------------------------------ */
-function currentTheme() {
-  return localStorage.getItem('theme') || 'system';
-}
-function setTheme(t) {
-  localStorage.setItem('theme', t);
-  document.documentElement.setAttribute('data-theme', t);
-  updateThemeSwitch();
-}
-function updateThemeSwitch() {
-  const cur = currentTheme();
-  document.querySelectorAll('.theme-switch .seg').forEach(b => {
-    b.classList.toggle('active', b.dataset.theme === cur);
-  });
-}
-function initTheme() {
-  updateThemeSwitch();
-  document.querySelectorAll('.theme-switch .seg').forEach(b => {
-    b.onclick = () => setTheme(b.dataset.theme);
-  });
-  // 系统模式下,如果运行中操作系统切换了主题,跟随更新
-  window.matchMedia('(prefers-color-scheme: light)').addEventListener('change', () => {
-    if (currentTheme() === 'system') updateThemeSwitch();
-  });
-}
-
 async function init() {
-  initTheme();
+  initializeTheme();
   resetSsmlTemplate(false);
   setMode('quick');
   // 事件绑定
@@ -1114,10 +1046,8 @@ async function init() {
   $('speakSsmlBtn').onclick = speakProfessional;
   $('proDownloadBtn').onclick = downloadAudio;
   $('downloadBtn').onclick = downloadAudio;
-  $('playToggle').onclick = togglePlay;
-  $('refreshHistory').onclick = loadHistory;
-  $('batchDeleteHistory').onclick = batchDeleteHistory;
-  $('selectAllHistory').onclick = toggleSelectAllHistory;
+  initializePlayer();
+  initializeHistory();
 
   bindRange('rate', '%');
   bindRange('pitch', 'Hz');

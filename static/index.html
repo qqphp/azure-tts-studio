@@ -25,6 +25,11 @@
     <h1>Azure 配音工坊</h1>
     <span class="brand-tag">TTS · STUDIO</span>
   </div>
+  <nav class="page-nav" aria-label="主导航">
+    <a href="#studio" data-page-link="studio">工作台</a>
+    <a href="#voices" data-page-link="voices">音色中心</a>
+    <a href="#history" data-page-link="history">历史记录</a>
+  </nav>
   <nav class="mode-nav" aria-label="配音模式">
     <button class="mode-tab active" type="button" data-mode="quick">快速配音</button>
     <button class="mode-tab" type="button" data-mode="professional">专业配音</button>
@@ -51,7 +56,7 @@
   </div>
 </header>
 
-<main class="workspace">
+<main id="workspace" class="workspace" data-page="studio">
 
   <!-- 左:音色库 -->
   <section class="panel voice-panel">
@@ -355,6 +360,7 @@
 
 <div id="toast" class="toast hidden"></div>
 
-<script src="app.js"></script>
+<script type="module" src="app.js"></script>
+<script type="module" src="modules/page-router.js"></script>
 </body>
 </html>

@@ -25,12 +25,19 @@
 ```
 Azure_TTS/
 ├── backend/
-│   ├── main.py             FastAPI 入口:配置读写、连接测试、合成、历史
+│   ├── main.py             FastAPI 开发入口
+│   ├── app/                后端应用包（路由、服务、配置）
+│   │   ├── api.py          HTTP API 路由
+│   │   ├── factory.py      应用装配
+│   │   ├── core/           配置与基础设施
+│   │   └── services/       Speech、SSML、历史业务服务
+│   ├── tests/              不依赖 Azure 密钥的回归测试
 │   └── requirements.txt
 ├── static/                 前端静态资源
 │   ├── index.html
 │   ├── styles.css
-│   └── app.js
+│   ├── app.js              页面功能编排入口
+│   └── modules/            路由、主题、共享状态、播放器、历史模块
 ├── config.json             保存的配置 (运行后自动生成,含 apiKey,请勿提交 git)
 └── history/                历史音频 + 元数据 (.bin / .json)
 ```
@@ -46,6 +53,18 @@ python main.py
 ```
 
 打开浏览器访问 <http://127.0.0.1:8000>。
+
+## 开发检查
+
+修改后端或前端模块后，可在项目根目录运行以下检查：
+
+```bash
+python -m unittest discover -s backend/tests -v
+node --check static/app.js
+node --check static/modules/*.js
+```
+
+测试不会请求 Azure Speech，也不会使用或写入现有的音频历史；覆盖健康检查、配置脱敏、SSML 安全校验与音频格式映射。
 
 ## 配置 Azure Speech 资源
 

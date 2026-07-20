@@ -1,0 +1,58 @@
+export interface Voice {
+  ShortName: string;
+  LocalName?: string;
+  DisplayName?: string;
+  Locale?: string;
+  LocaleName?: string;
+  Gender?: string;
+  StyleList?: string[];
+}
+
+export interface HistoryItem {
+  id: string;
+  ts: number;
+  voice?: string;
+  text?: string;
+  mode?: 'quick' | 'professional';
+}
+
+export interface Settings {
+  endpoint: string;
+  apiKey: string;
+  defaultVoice: string;
+  outputFormat: string;
+  llm?: { provider?: string; base?: string; apiKey?: string; defaultModel?: string; timeout?: number };
+}
+
+export interface LlmProvider { id: string; label: string; base: string; default_model: string; }
+export interface LlmModel { id: string; owned_by?: string; }
+export interface LlmConnectionResult { ok: boolean; count?: number; error?: string; }
+
+export interface SynthesisResult {
+  ok: boolean;
+  id: string;
+  mime: string;
+  meta: HistoryItem;
+}
+
+export interface SsmlValidation {
+  ok: boolean;
+  voiceCount: number;
+  voices: string[];
+  textLength: number;
+  characters: number;
+}
+
+export interface ConnectionResult {
+  ok: boolean;
+  count?: number;
+  zh_count?: number;
+  error?: string;
+}
+
+export interface AiReviewResult {
+  ok: boolean;
+  model?: string;
+  error?: string;
+  result?: { tts_text?: string; summary?: string; score?: number | null; issues?: unknown[] };
+}
