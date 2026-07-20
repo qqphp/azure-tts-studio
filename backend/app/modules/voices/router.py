@@ -4,7 +4,7 @@ import httpx
 from fastapi import APIRouter
 
 from app.modules.dependencies import require_speech_config
-from app.modules.voices.repository import add_favorite, list_favorites, remove_favorite
+from app.modules.voices.repository import add_favorite, list_favorite_voices, list_favorites, remove_favorite
 from app.services.speech import auth_headers, voices_endpoint
 
 router = APIRouter(tags=["voices"])
@@ -15,10 +15,15 @@ def favorites() -> list[str]:
     return list_favorites()
 
 
+@router.get("/voices/favorites/items")
+def favorite_items() -> list[dict[str, Any]]:
+    return list_favorite_voices()
+
+
 @router.put("/voices/favorites/{short_name}")
-def add_voice_favorite(short_name: str) -> dict[str, object]:
+async def add_voice_favorite(short_name: str, voice: dict[str, Any] | None = None) -> dict[str, object]:
     try:
-        return {"ok": True, "short_name": add_favorite(short_name)}
+        return {"ok": True, "short_name": add_favorite(short_name, voice)}
     except ValueError as exc:
         from fastapi import HTTPException
         raise HTTPException(400, str(exc)) from exc

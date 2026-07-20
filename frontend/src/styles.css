@@ -27,6 +27,12 @@
 @media (max-width: 560px) { .history-toolbar { width: 100%; }.history-toolbar .secondary-button { flex: 1; } }
 @media (max-width: 560px) { .history-list-toolbar { align-items: stretch; flex-direction: column; gap: 12px; padding: 13px 16px; }.history-toolbar { justify-content: stretch; }.history-toolbar .secondary-button { flex: 1; } }
 
+.voice-library-tabs { display: flex; align-items: center; gap: 4px; margin-bottom: 17px; padding: 4px; width: fit-content; border: 1px solid #292f43; border-radius: 10px; background: #121725; }
+.voice-library-tabs button { border: 0; border-radius: 7px; padding: 8px 13px; background: transparent; color: #8993ab; font-size: 12px; font-weight: 700; }
+.voice-library-tabs button:hover { color: #e9edf8; }
+.voice-library-tabs button.active { color: #fff; background: #302b5b; box-shadow: inset 0 0 0 1px #514a88; }
+.voice-library-tabs span { margin-left: 4px; color: #a790ff; }
+
 /* Compact, one-line page headers shared by every route. */
 .page-content { padding-top: 34px; }
 .page-header { min-height: 52px; align-items: center; gap: 24px; margin-bottom: 26px; padding: 10px 0; }

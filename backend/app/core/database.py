@@ -27,9 +27,13 @@ def connection() -> Iterator[sqlite3.Connection]:
         db.execute("""
             CREATE TABLE IF NOT EXISTS voice_favorites (
                 short_name TEXT PRIMARY KEY,
-                created_at INTEGER NOT NULL
+                created_at INTEGER NOT NULL,
+                voice_json TEXT
             )
         """)
+        columns = {row[1] for row in db.execute("PRAGMA table_info(voice_favorites)").fetchall()}
+        if "voice_json" not in columns:
+            db.execute("ALTER TABLE voice_favorites ADD COLUMN voice_json TEXT")
         yield db
         db.commit()
     finally:
