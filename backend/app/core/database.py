@@ -31,6 +31,31 @@ def connection() -> Iterator[sqlite3.Connection]:
                 voice_json TEXT
             )
         """)
+        db.execute("""
+            CREATE TABLE IF NOT EXISTS editor_roles (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
+                short_name TEXT NOT NULL,
+                voice_json TEXT NOT NULL,
+                rate TEXT NOT NULL DEFAULT 'medium',
+                created_at INTEGER NOT NULL
+            )
+        """)
+        role_columns = {row[1] for row in db.execute("PRAGMA table_info(editor_roles)").fetchall()}
+        if "rate" not in role_columns:
+            db.execute("ALTER TABLE editor_roles ADD COLUMN rate TEXT NOT NULL DEFAULT 'medium'")
+        db.execute("""
+            UPDATE editor_roles
+            SET rate = CASE rate
+                WHEN '0.8x' THEN 'slow'
+                WHEN '0.9x' THEN 'slow'
+                WHEN '1.0x' THEN 'medium'
+                WHEN '1.1x' THEN 'fast'
+                WHEN '1.2x' THEN 'fast'
+                ELSE rate
+            END
+            WHERE rate IN ('0.8x', '0.9x', '1.0x', '1.1x', '1.2x')
+        """)
         columns = {row[1] for row in db.execute("PRAGMA table_info(voice_favorites)").fetchall()}
         if "voice_json" not in columns:
             db.execute("ALTER TABLE voice_favorites ADD COLUMN voice_json TEXT")

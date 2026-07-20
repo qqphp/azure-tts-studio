@@ -8,8 +8,8 @@ import { api } from '../../services/api';
 import { applyTheme } from '../../theme';
 
 const navItems = [
-  { to: '/', label: '工作台', icon: Mic2, end: true },
-  { to: '/editor', label: '专业编辑器', icon: SlidersHorizontal },
+  { to: '/', label: '快速配音', icon: Mic2, end: true },
+  { to: '/editor', label: '专业配音', icon: SlidersHorizontal },
   { to: '/voices', label: '音色中心', icon: Volume2 },
   { to: '/history', label: '历史项目', icon: History },
 ];

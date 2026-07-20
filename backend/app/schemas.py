@@ -36,3 +36,15 @@ class SsmlPayload(BaseModel):
 
 class HistoryBatchDeletePayload(BaseModel):
     ids: list[str] = Field(default_factory=list)
+
+
+class EditorRolePayload(BaseModel):
+    name: str = Field(min_length=1, max_length=80)
+    voice: dict[str, Any]
+    rate: str = "medium"
+
+
+class EditorRoleUpdatePayload(BaseModel):
+    name: str = Field(min_length=1, max_length=80)
+    rate: str = "medium"
+    voice: dict[str, Any] | None = None

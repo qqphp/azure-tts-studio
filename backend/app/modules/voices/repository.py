@@ -10,7 +10,7 @@ from app.core.database import connection
 
 
 def clean_short_name(value: object) -> str:
-    return re.sub(r"[^A-Za-z0-9_-]", "", str(value))
+    return re.sub(r"[^A-Za-z0-9_:-]", "", str(value))
 
 
 def list_favorites() -> list[str]:

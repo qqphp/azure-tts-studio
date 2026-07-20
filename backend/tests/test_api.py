@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import sys
+import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from fastapi.testclient import TestClient
 
@@ -11,6 +13,7 @@ if str(BACKEND_DIR) not in sys.path:
     sys.path.insert(0, str(BACKEND_DIR))
 
 from app.factory import create_app  # noqa: E402
+from app.core import database  # noqa: E402
 from app.services.speech import build_ssml, mime_for_format  # noqa: E402
 from app.services.ssml import validate_document  # noqa: E402
 
@@ -58,6 +61,26 @@ class ApiRegressionTests(unittest.TestCase):
         self.assertIsInstance(providers.json(), list)
         self.assertEqual(status.status_code, 200)
         self.assertIn("configured", status.json())
+
+    def test_editor_role_is_validated_and_saved_to_sqlite(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir, patch.object(database, "DATABASE_PATH", Path(temp_dir) / "studio.db"):
+            invalid = self.client.post("/api/editor/roles", json={"name": "   ", "voice": {"ShortName": "zh-CN-Mei:MAI-Voice-2"}})
+            self.assertEqual(invalid.status_code, 400)
+            created = self.client.post("/api/editor/roles", json={"name": "旁白", "voice": {"ShortName": "zh-CN-Mei:MAI-Voice-2", "LocalName": "Mei"}})
+            self.assertEqual(created.status_code, 201)
+            self.assertEqual(created.json()["name"], "旁白")
+            self.assertEqual(created.json()["voice"]["ShortName"], "zh-CN-Mei:MAI-Voice-2")
+            self.assertEqual(created.json()["rate"], "medium")
+            updated = self.client.patch(f"/api/editor/roles/{created.json()['id']}", json={"name": "主持人", "rate": "fast"})
+            self.assertEqual(updated.status_code, 200)
+            self.assertEqual(updated.json()["name"], "主持人")
+            self.assertEqual(updated.json()["rate"], "fast")
+            roles = self.client.get("/api/editor/roles")
+            self.assertEqual(roles.status_code, 200)
+            self.assertEqual(roles.json(), [updated.json()])
+            deleted = self.client.delete(f"/api/editor/roles/{created.json()['id']}")
+            self.assertEqual(deleted.status_code, 200)
+            self.assertEqual(self.client.get("/api/editor/roles").json(), [])
 
 
 class ServiceRegressionTests(unittest.TestCase):

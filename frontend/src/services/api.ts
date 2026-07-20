@@ -1,4 +1,4 @@
-import type { AiReviewResult, ConnectionResult, HistoryItem, LlmConnectionResult, LlmModel, LlmProvider, Settings, SsmlValidation, SynthesisResult, Voice } from '../types/api';
+import type { AiReviewResult, ConnectionResult, EditorRole, HistoryItem, LlmConnectionResult, LlmModel, LlmProvider, Settings, SsmlValidation, SynthesisResult, Voice } from '../types/api';
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
   const response = await fetch(path, options);
@@ -20,6 +20,14 @@ export const api = {
   favoriteVoiceItems: () => request<Voice[]>('/api/voices/favorites/items'),
   addFavoriteVoice: (voice: Voice) => request<{ ok: boolean }>(`/api/voices/favorites/${encodeURIComponent(voice.ShortName)}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(voice) }),
   removeFavoriteVoice: (shortName: string) => request<{ ok: boolean }>(`/api/voices/favorites/${encodeURIComponent(shortName)}`, { method: 'DELETE' }),
+  editorRoles: () => request<EditorRole[]>('/api/editor/roles'),
+  createEditorRole: (data: { name: string; voice: Voice }) => request<EditorRole>('/api/editor/roles', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data),
+  }),
+  updateEditorRole: (id: number, data: { name: string; rate: string; voice?: Voice }) => request<EditorRole>(`/api/editor/roles/${id}`, {
+    method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data),
+  }),
+  deleteEditorRole: (id: number) => request<{ ok: boolean }>(`/api/editor/roles/${id}`, { method: 'DELETE' }),
   history: () => request<HistoryItem[]>('/api/history'),
   deleteHistory: (id: string) => request<{ ok: boolean }>(`/api/history/${id}`, { method: 'DELETE' }),
   deleteHistoryBatch: (ids: string[]) => request<{ ok: boolean; deleted: number; missing: string[] }>('/api/history/batch-delete', {

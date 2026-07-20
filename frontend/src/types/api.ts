@@ -20,6 +20,14 @@ export interface HistoryItem {
   mode?: 'quick' | 'professional';
 }
 
+export interface EditorRole {
+  id: number;
+  name: string;
+  voice: Voice;
+  rate: string;
+  createdAt: number;
+}
+
 export interface Settings {
   endpoint: string;
   apiKey: string;
