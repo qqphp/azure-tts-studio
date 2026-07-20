@@ -33,6 +33,14 @@
 .history-pagination > div { display: flex; gap: 6px; }
 .pagination-button { display: grid; place-items: center; width: 30px; height: 30px; border: 1px solid #343c55; border-radius: 8px; background: #242a3e; color: #cbd2e7; }
 .pagination-button:disabled { opacity: .4; }
+.page-content:has(.voice-library-content) { height: 100vh; min-height: 0; overflow: hidden; display: flex; flex-direction: column; }
+.page-content:has(.voice-library-content) .voice-library-content { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.app-shell.has-audio-player .page-content:has(.voice-library-content) { padding-bottom: 108px; }
+.voice-library-content .voice-grid { flex: 1; min-height: 0; overflow-y: auto; align-content: start; padding: 2px 2px 16px; }
+.voice-library-content .voice-card { height: 208px; min-height: 208px; overflow: hidden; }
+.voice-pagination { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 2px 0; color: #8993ab; font-size: 12px; }
+.voice-pagination > div { display: flex; gap: 6px; }
+@media (max-width: 860px) { .page-content:has(.voice-library-content) { height: auto; min-height: 0; overflow: visible; display: block; }.app-shell.has-audio-player .page-content:has(.voice-library-content) { padding-bottom: 92px; }.voice-library-content .voice-grid { overflow: visible; } }
 @media (max-width: 860px) { .page-content:has(.history-card) { height: auto; min-height: 0; overflow: visible; display: block; }.page-content:has(.history-card) .history-card { min-height: 0; }.history-rows { overflow: visible; } }
 
 .expression-selects { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px 20px; }
