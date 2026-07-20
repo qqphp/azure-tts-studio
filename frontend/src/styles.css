@@ -10,6 +10,9 @@
 @media (max-width: 860px) { .app-shell { grid-template-columns: 1fr; }.sidebar { min-height: auto; position: static; flex-direction: row; align-items: center; padding: 12px; border-right: 0; border-bottom: 1px solid #20263a; overflow-x: auto; }.brand { padding: 0 14px 0 0; white-space: nowrap; }.navigation { display: flex; }.nav-settings { margin: 0 0 0 auto; }.nav-item { white-space: nowrap; }.page-content { padding-top: 35px; }.studio-grid { grid-template-columns: 1fr; }.quick-settings { grid-column: auto; grid-template-columns: 1fr; }.quick-settings .card-title { grid-column: auto; }.history-table-head { display: none; }.history-row { grid-template-columns: 1fr auto; }.history-row > span:nth-child(2), .history-row > span:nth-child(3) { display: none; } } @media (max-width: 560px) { .sidebar { align-items: flex-start; }.brand span:last-child { display: none; }.navigation { gap: 2px; }.nav-item span { display: none; }.page-content { padding: 30px 17px 50px; }.page-header { margin-bottom: 26px; }.compose-footer { gap: 10px; }.text-button { font-size: 0; }.text-button svg { width: 18px; height: 18px; } }
 
 .history-table-head, .history-row { grid-template-columns: 28px 2.2fr 1.3fr 1.35fr .55fr; }
+.history-list-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 14px 20px; border-bottom: 1px solid #2a3147; background: rgba(23, 28, 43, .72); }
+.history-selection { display: flex; align-items: center; gap: 16px; }
+.history-total { color: #7f8aa4; font-size: 12px; }
 .history-toolbar { display: flex; align-items: center; gap: 9px; flex-wrap: wrap; }
 .select-all-control { display: inline-flex; align-items: center; gap: 7px; color: #b9c0d2; font-size: 12px; white-space: nowrap; }
 .select-all-control input, .row-checkbox input { accent-color: #a790ff; width: 16px; height: 16px; }
@@ -19,3 +22,4 @@
 @keyframes spin { to { transform: rotate(360deg); } }
 @media (max-width: 860px) { .history-row { grid-template-columns: 28px 1fr auto; }.history-row > span:nth-child(3), .history-row > span:nth-child(4) { display: none; } }
 @media (max-width: 560px) { .history-toolbar { width: 100%; }.history-toolbar .secondary-button { flex: 1; } }
+@media (max-width: 560px) { .history-list-toolbar { align-items: stretch; flex-direction: column; gap: 12px; padding: 13px 16px; }.history-toolbar { justify-content: stretch; }.history-toolbar .secondary-button { flex: 1; } }
