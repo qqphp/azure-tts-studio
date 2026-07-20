@@ -25,7 +25,7 @@ export const api = {
   deleteHistoryBatch: (ids: string[]) => request<{ ok: boolean; deleted: number; missing: string[] }>('/api/history/batch-delete', {
     method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ids }),
   }),
-  speak: (data: { text: string; voice?: string; rate?: string; pitch?: string; volume?: string; style?: string }) => request<SynthesisResult>('/api/speak', {
+  speak: (data: { text: string; voice?: string; rate?: string; pitch?: string; volume?: string; style?: string; role?: string }) => request<SynthesisResult>('/api/speak', {
     method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data),
   }),
   validateSsml: (ssml: string) => request<SsmlValidation>('/api/ssml/validate', {

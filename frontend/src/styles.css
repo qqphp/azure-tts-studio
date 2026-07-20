@@ -27,6 +27,12 @@
 @media (max-width: 560px) { .history-toolbar { width: 100%; }.history-toolbar .secondary-button { flex: 1; } }
 @media (max-width: 560px) { .history-list-toolbar { align-items: stretch; flex-direction: column; gap: 12px; padding: 13px 16px; }.history-toolbar { justify-content: stretch; }.history-toolbar .secondary-button { flex: 1; } }
 
+.expression-selects { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px 20px; }
+.expression-selects .style-select { min-width: 0; width: 100%; grid-column: auto; }
+.sidebar { height: 100vh; max-height: 100vh; align-self: start; overflow-y: auto; }
+@media (max-width: 860px) { .expression-selects { grid-template-columns: 1fr 1fr; }.sidebar { height: auto; max-height: none; overflow-y: visible; align-self: auto; } }
+@media (max-width: 560px) { .expression-selects { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; } }
+
 .voice-library-tabs { display: flex; align-items: center; gap: 4px; margin-bottom: 17px; padding: 4px; width: fit-content; border: 1px solid #292f43; border-radius: 10px; background: #121725; }
 .voice-library-tabs button { border: 0; border-radius: 7px; padding: 8px 13px; background: transparent; color: #8993ab; font-size: 12px; font-weight: 700; }
 .voice-library-tabs button:hover { color: #e9edf8; }
