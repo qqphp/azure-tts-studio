@@ -60,6 +60,7 @@
 .voice-filter-actions label { display: inline-flex; align-items: center; gap: 6px; font-weight: 500; }
 .voice-filter-actions input { accent-color: #a790ff; }
 .voice-filter-actions .text-button { padding: 0; font-size: 11px; }
+.voice-capabilities { color: #8f83e8 !important; font-size: 10px !important; }
 .studio-layout .voice-list { max-height: 510px; margin-top: 13px; }
 .studio-main-card { min-height: 100%; padding: 21px; display: flex; flex-direction: column; }
 .studio-main-card textarea { resize: none; flex: 1; min-height: 245px; margin: 20px 0; padding: 12px 0; border: 0; outline: 0; background: transparent; color: #e9edf8; font-size: 17px; line-height: 1.75; }
