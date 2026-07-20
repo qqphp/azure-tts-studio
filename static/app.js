@@ -324,11 +324,6 @@ function renderVoiceFilters() {
   const typeLabels = { 'Neural':'Neural', 'Standard':'Standard', 'OnlineNatural':'OnlineNatural (自然)' };
   setOptions('typeFilter', types, '全部类型', typeLabels);
 
-  const roleLabels = {
-    Boy: '男孩', Girl: '女孩', YoungAdultMale: '青年男性', YoungAdultFemale: '青年女性',
-    OlderAdultMale: '中老年男性', OlderAdultFemale: '中老年女性',
-    SeniorMale: '老年男性', SeniorFemale: '老年女性', Narrator: '旁白',
-  };
   const statusLabels = { GA: '正式版 GA', Preview: '预览版 Preview', Deprecated: '已弃用 Deprecated' };
   const scenarioLabels = {
     advertisement: '广告', assistant: '语音助手', audiobook: '有声书', audiobooks: '有声书',
@@ -349,7 +344,7 @@ function renderVoiceFilters() {
     trusthworthy: '值得信赖', upbeat: '积极', versatile: '多变', warm: '温暖',
     'well-rounded': '全面均衡', whimsical: '奇趣', youthful: '青春',
   };
-  setOptions('roleFilter', valuesOf(state.voices, v => v.RolePlayList), '全部年龄感 / 角色', roleLabels);
+  setOptions('roleFilter', valuesOf(state.voices, v => v.RolePlayList), '全部年龄感 / 角色', ROLE_CN);
   setOptions('statusFilter', valuesOf(state.voices, v => v.Status), '全部状态', statusLabels);
   setOptions('scenarioFilter', valuesOf(state.voices, v => tagValues(v, 'TailoredScenarios')), '全部使用场景', scenarioLabels);
   setOptions('personalityFilter', valuesOf(state.voices, v => tagValues(v, 'VoicePersonalities')), '全部音色人格', personalityLabels);
@@ -440,6 +435,7 @@ function selectVoice(id) {
   $('selectedVoiceTag').textContent = id;
   renderVoices();
   updateStyleOptions();
+  updateRoleOptions();
   updateSpeakBtn();
 }
 
@@ -451,7 +447,21 @@ function updateStyleOptions() {
     styles.map(s => `<option value="${s}">${s} · ${STYLE_CN[s] || s}</option>`).join('');
 }
 
+function updateRoleOptions() {
+  const sel = $('role');
+  const voice = state.voices.find(v => v.ShortName === state.selectedVoice);
+  const roles = Array.isArray(voice?.RolePlayList) ? voice.RolePlayList : [];
+  sel.innerHTML = '<option value="">默认 · default</option>' +
+    roles.map(role => `<option value="${escapeHtml(role)}">${escapeHtml(ROLE_CN[role] || role)} · ${escapeHtml(role)}</option>`).join('');
+}
+
 /* Azure 说话风格英文名 -> 中文译名(用于下拉显示,值仍用英文以匹配 SSML) */
+const ROLE_CN = {
+  Boy: '男孩', Girl: '女孩', YoungAdultMale: '青年男性', YoungAdultFemale: '青年女性',
+  OlderAdultMale: '中老年男性', OlderAdultFemale: '中老年女性',
+  SeniorMale: '老年男性', SeniorFemale: '老年女性', Narrator: '旁白',
+};
+
 const STYLE_CN = {
   affectionate: '亲切',
   'angry': '愤怒',
