@@ -61,6 +61,13 @@
 .voice-filter-actions input { accent-color: #a790ff; }
 .voice-filter-actions .text-button { padding: 0; font-size: 11px; }
 .voice-capabilities { color: #8f83e8 !important; font-size: 10px !important; }
+.page-content:has(.studio-layout) { height: 100vh; min-height: 0; overflow: hidden; display: flex; flex-direction: column; }
+.page-content:has(.studio-layout) .studio-layout { flex: 1; min-height: 0; }
+.app-shell.has-audio-player .page-content:has(.studio-layout) { padding-bottom: 108px; }
+.studio-layout .voice-picker { display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
+.studio-layout .voice-list { flex: 1; min-height: 0; max-height: none; overflow-y: auto; }
+.studio-main-card { min-height: 0; overflow: hidden; }
+@media (max-width: 860px) { .page-content:has(.studio-layout) { height: auto; min-height: 0; overflow: visible; display: block; }.app-shell.has-audio-player .page-content:has(.studio-layout) { padding-bottom: 92px; }.studio-layout .voice-picker { max-height: none; overflow: visible; }.studio-layout .voice-list { max-height: 370px; } }
 .studio-layout .voice-list { max-height: 510px; margin-top: 13px; }
 .studio-main-card { min-height: 100%; padding: 21px; display: flex; flex-direction: column; }
 .studio-main-card textarea { resize: none; flex: 1; min-height: 245px; margin: 20px 0; padding: 12px 0; border: 0; outline: 0; background: transparent; color: #e9edf8; font-size: 17px; line-height: 1.75; }

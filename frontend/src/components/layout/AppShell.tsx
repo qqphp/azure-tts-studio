@@ -1,6 +1,7 @@
 import { History, Mic2, Settings, SlidersHorizontal, Sparkles, Volume2 } from 'lucide-react';
 import { NavLink, Outlet } from 'react-router-dom';
 import { AudioPlayer } from '../audio/AudioPlayer';
+import { usePlayerStore } from '../../stores/player-store';
 
 const navItems = [
   { to: '/', label: '工作台', icon: Mic2, end: true },
@@ -10,7 +11,8 @@ const navItems = [
 ];
 
 export function AppShell() {
-  return <div className="app-shell">
+  const hasAudioPlayer = usePlayerStore((state) => Boolean(state.source));
+  return <div className={`app-shell ${hasAudioPlayer ? 'has-audio-player' : ''}`}>
     <aside className="sidebar">
       <div className="brand"><span className="brand-mark"><Sparkles size={18} /></span><span>Azure 配音工坊</span></div>
       <nav className="navigation" aria-label="主导航">
