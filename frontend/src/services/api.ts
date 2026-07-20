@@ -21,6 +21,9 @@ export const api = {
   removeFavoriteVoice: (shortName: string) => request<{ ok: boolean }>(`/api/voices/favorites/${encodeURIComponent(shortName)}`, { method: 'DELETE' }),
   history: () => request<HistoryItem[]>('/api/history'),
   deleteHistory: (id: string) => request<{ ok: boolean }>(`/api/history/${id}`, { method: 'DELETE' }),
+  deleteHistoryBatch: (ids: string[]) => request<{ ok: boolean; deleted: number; missing: string[] }>('/api/history/batch-delete', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ids }),
+  }),
   speak: (data: { text: string; voice?: string; rate?: string; pitch?: string; volume?: string; style?: string }) => request<SynthesisResult>('/api/speak', {
     method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data),
   }),

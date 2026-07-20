@@ -1,5 +1,5 @@
 from fastapi import FastAPI
-from fastapi.responses import JSONResponse
+from fastapi.responses import FileResponse, JSONResponse
 from pathlib import Path
 import os
 
@@ -29,6 +29,11 @@ def create_app() -> FastAPI:
     migrate_legacy_secrets()
     application = FastAPI(title="Azure TTS Studio", version="2.0.0")
     application.include_router(router)
+
+    @application.get("/favicon.ico", include_in_schema=False)
+    def favicon():
+        return FileResponse(STATIC_DIR / "favicon.ico", media_type="image/x-icon")
+
     web_dir = FRONTEND_DIST_DIR if FRONTEND_DIST_DIR.exists() else STATIC_DIR
     if web_dir.exists():
         # The legacy UI is an opt-in emergency rollback, not a normal entry.
