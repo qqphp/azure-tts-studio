@@ -67,6 +67,9 @@
 .studio-layout .voice-picker { display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
 .studio-layout .voice-list { flex: 1; min-height: 0; max-height: none; overflow-y: auto; }
 .studio-main-card { min-height: 0; overflow: hidden; }
+.studio-layout .voice-option { height: 74px; min-height: 74px; overflow: hidden; }
+.studio-layout .voice-option > span:last-child { min-width: 0; overflow: hidden; }
+.studio-layout .voice-option b, .studio-layout .voice-option small { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 @media (max-width: 860px) { .page-content:has(.studio-layout) { height: auto; min-height: 0; overflow: visible; display: block; }.app-shell.has-audio-player .page-content:has(.studio-layout) { padding-bottom: 92px; }.studio-layout .voice-picker { max-height: none; overflow: visible; }.studio-layout .voice-list { max-height: 370px; } }
 .studio-layout .voice-list { max-height: 510px; margin-top: 13px; }
 .studio-main-card { min-height: 100%; padding: 21px; display: flex; flex-direction: column; }
