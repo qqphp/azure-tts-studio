@@ -65,7 +65,11 @@
 .page-content:has(.studio-layout) .studio-layout { flex: 1; min-height: 0; }
 .app-shell.has-audio-player .page-content:has(.studio-layout) { padding-bottom: 108px; }
 .studio-layout .voice-picker { display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
-.studio-layout .voice-list { flex: 1; min-height: 0; max-height: none; overflow-y: auto; }
+.studio-layout .voice-list { flex: 1; min-height: 0; max-height: none; overflow-y: auto; align-content: start; grid-auto-rows: 74px; }
+.studio-layout .voice-list { row-gap: 8px; }
+.studio-layout .voice-option { border: 1px solid transparent; }
+.studio-layout .voice-option:hover:not(.selected) { background: #272a50; border-color: #3c4164; }
+.studio-layout .voice-option.selected { background: #332f68; border-color: #8d7cf1; box-shadow: 0 0 0 1px #8d7cf133; }
 .studio-main-card { min-height: 0; overflow: hidden; }
 .studio-layout .voice-option { height: 74px; min-height: 74px; overflow: hidden; }
 .studio-layout .voice-option > span:last-child { min-width: 0; overflow: hidden; }
