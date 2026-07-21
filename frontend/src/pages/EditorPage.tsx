@@ -3,6 +3,7 @@ import { xml } from '@codemirror/lang-xml';
 import CodeMirror from '@uiw/react-codemirror';
 import {
   AudioLines,
+  AudioWaveform,
   CheckCircle2,
   ChevronDown,
   Code2,
@@ -19,6 +20,7 @@ import {
   Pause,
   RotateCcw,
   Search,
+  Timer,
   Trash2,
   Users,
   VolumeX,
@@ -38,6 +40,7 @@ type EditorSegment = {
   style: string;
   role: string;
   rate: string;
+  audioDuration?: string;
   text: string;
 };
 
@@ -56,18 +59,22 @@ type BackgroundAudioSelection = {
   fadeOut: string;
 };
 
+type BreakStrength = 'x-weak' | 'weak' | 'medium' | 'strong' | 'x-strong';
+
 const ssmlToolGroups: { label: string; tools: SsmlTool[] }[] = [
   { label: '情感', tools: [] },
   { label: '副语言', tools: [] },
   { label: '角色', tools: [] },
   { label: '语速', tools: [] },
   { label: '停顿', tools: [] },
+  { label: '时长', tools: [] },
+  { label: '韵律', tools: [] },
   { label: '静音', tools: [] },
   { label: '音效', tools: [] },
   { label: '背景音', tools: [] },
 ];
 
-const ssmlToolIcons = [Heart, Languages, Users, Gauge, Pause, VolumeX, AudioLines, Music2];
+const ssmlToolIcons = [Heart, Languages, Users, Gauge, Pause, Timer, AudioWaveform, VolumeX, AudioLines, Music2];
 
 const starterSegments: EditorSegment[] = [
   {
@@ -97,10 +104,17 @@ const escapeXml = (value: string) => value
   .replaceAll('"', '&quot;')
   .replaceAll("'", '&apos;');
 
+const escapeXmlText = (value: string) => value
+  .replace(/&(?!(?:amp|lt|gt|quot|apos|#\d+|#x[\dA-Fa-f]+);)/g, '&amp;')
+  .replaceAll('<', '&lt;')
+  .replaceAll('>', '&gt;')
+  .replaceAll('"', '&quot;')
+  .replaceAll("'", '&apos;');
+
 // Escape regular text while keeping the SSML elements inserted by the visual tools intact.
 const escapeSsmlContent = (value: string) => value
   .split(/(<[^>]+>)/g)
-  .map((part) => part.startsWith('<') && part.endsWith('>') ? part : escapeXml(part))
+  .map((part) => part.startsWith('<') && part.endsWith('>') ? part : escapeXmlText(part))
   .join('');
 
 const boundedNumber = (value: string, minimum: number, maximum: number, fallback: number) => {
@@ -119,7 +133,10 @@ const buildSsml = (segments: EditorSegment[], backgroundAudio?: BackgroundAudioS
       // 片段编辑器允许用户通过可视化工具插入 SSML，因此这里保留片段中的 XML 标记。
       const text = `<prosody rate="${escapeXml(segment.rate)}">${escapeSsmlContent(segment.text.trim())}</prosody>`;
       const expression = expressionAttributes ? `<mstts:express-as ${expressionAttributes}>${text}</mstts:express-as>` : text;
-      return `  <voice name="${escapeXml(segment.voice)}">\n    ${expression}\n  </voice>`;
+      const audioDuration = segment.audioDuration
+        ? `<mstts:audioduration value="${escapeXml(segment.audioDuration)}"/>\n    `
+        : '';
+      return `  <voice name="${escapeXml(segment.voice)}">\n    ${audioDuration}${expression}\n  </voice>`;
     })
     .join('\n');
 
@@ -150,6 +167,7 @@ export function EditorPage() {
   const { data: favoriteVoices = [], isLoading: favoritesLoading } = useQuery({ queryKey: ['voice-favorite-items'], queryFn: api.favoriteVoiceItems });
   const { data: savedRoles = [], isLoading: rolesLoading } = useQuery({ queryKey: ['editor-roles'], queryFn: api.editorRoles });
   const { data: backgroundMusic = [], isLoading: backgroundMusicLoading } = useQuery({ queryKey: ['background-music'], queryFn: api.backgroundMusic });
+  const { data: soundEffects = [], isLoading: soundEffectsLoading } = useQuery({ queryKey: ['sound-effects'], queryFn: api.soundEffects });
   const [segments, setSegments] = useState<EditorSegment[]>(starterSegments);
   const [activeSegmentId, setActiveSegmentId] = useState(starterSegments[0].id);
   const [view, setView] = useState<'visual' | 'source'>('visual');
@@ -172,6 +190,22 @@ export function EditorPage() {
   const [backgroundTag, setBackgroundTag] = useState('');
   const [backgroundAudio, setBackgroundAudio] = useState<BackgroundAudioSelection | null>(null);
   const [backgroundDraft, setBackgroundDraft] = useState<{ musicId: number | null; volume: string; fadeIn: string; fadeOut: string }>({ musicId: null, volume: '1', fadeIn: '0', fadeOut: '0' });
+  const [soundEffectDialogOpen, setSoundEffectDialogOpen] = useState(false);
+  const [soundEffectKeyword, setSoundEffectKeyword] = useState('');
+  const [soundEffectCategory, setSoundEffectCategory] = useState('');
+  const [soundEffectTag, setSoundEffectTag] = useState('');
+  const [soundEffectDraftId, setSoundEffectDraftId] = useState<number | null>(null);
+  const [soundEffectFallback, setSoundEffectFallback] = useState('');
+  const [breakMode, setBreakMode] = useState<'strength' | 'time'>('strength');
+  const [breakStrength, setBreakStrength] = useState<BreakStrength>('medium');
+  const [breakTime, setBreakTime] = useState('750');
+  const [audioDurationValue, setAudioDurationValue] = useState('2');
+  const [audioDurationUnit, setAudioDurationUnit] = useState<'s' | 'ms'>('s');
+  const [prosodyPitch, setProsodyPitch] = useState('');
+  const [prosodyRange, setProsodyRange] = useState('');
+  const [prosodyRate, setProsodyRate] = useState('');
+  const [prosodyVolume, setProsodyVolume] = useState('');
+  const [prosodyContour, setProsodyContour] = useState('');
   const hydrated = useRef(false);
   const repairingRoleIds = useRef(new Set<number>());
   const segmentSelections = useRef(new Map<string, { from: number; to: number }>());
@@ -252,6 +286,15 @@ export function EditorPage() {
       return matchesKeyword && (!backgroundCategory || music.category === backgroundCategory) && (!backgroundTag || music.tags.includes(backgroundTag));
     });
   }, [backgroundCategory, backgroundKeyword, backgroundMusic, backgroundTag]);
+  const soundEffectCategories = useMemo(() => [...new Set(soundEffects.map((effect) => effect.category))].sort((a, b) => a.localeCompare(b, 'zh-CN')), [soundEffects]);
+  const soundEffectTags = useMemo(() => [...new Set(soundEffects.flatMap((effect) => effect.tags))].sort((a, b) => a.localeCompare(b, 'zh-CN')), [soundEffects]);
+  const soundEffectResults = useMemo(() => {
+    const keyword = soundEffectKeyword.trim().toLowerCase();
+    return soundEffects.filter((effect) => {
+      const matchesKeyword = !keyword || `${effect.title} ${effect.category} ${effect.tags.join(' ')} ${effect.url}`.toLowerCase().includes(keyword);
+      return matchesKeyword && (!soundEffectCategory || effect.category === soundEffectCategory) && (!soundEffectTag || effect.tags.includes(soundEffectTag));
+    });
+  }, [soundEffectCategory, soundEffectKeyword, soundEffects, soundEffectTag]);
 
   const validate = useMutation({
     mutationFn: api.validateSsml,
@@ -340,6 +383,78 @@ export function EditorPage() {
     segmentSelections.current.set(segment.id, { from: start, to: start + replacement.length });
     updateSegment(segment.id, { text: nextText });
     setMessage(`已插入「${tool.label}」标记。可在编辑区直接修改属性值。`);
+  };
+
+  const insertBreak = () => {
+    const segment = activeSegment;
+    if (!segment) return;
+    const selection = segmentSelections.current.get(segment.id) ?? { from: segment.text.length, to: segment.text.length };
+    const insertAt = Math.max(0, Math.min(selection.from, segment.text.length));
+    const milliseconds = Math.round(boundedNumber(breakTime, 0, 20000, 750));
+    const replacement = breakMode === 'time' ? `<break time="${milliseconds}ms"/>` : `<break strength="${breakStrength}"/>`;
+    const nextText = `${segment.text.slice(0, insertAt)}${replacement}${segment.text.slice(insertAt)}`;
+    segmentSelections.current.set(segment.id, { from: insertAt + replacement.length, to: insertAt + replacement.length });
+    updateSegment(segment.id, { text: nextText });
+    setOpenSsmlMenu(null);
+    setMessage(breakMode === 'time' ? `已插入 ${milliseconds}ms 停顿。` : `已插入 ${breakStrength} 强度停顿。`);
+  };
+
+  const openAudioDurationMenu = () => {
+    if (openSsmlMenu === '时长') {
+      setOpenSsmlMenu(null);
+      return;
+    }
+    const currentValue = activeSegment?.audioDuration?.match(/^([0-9]+(?:\.[0-9]+)?)(ms|s)$/);
+    setAudioDurationValue(currentValue?.[1] ?? '2');
+    setAudioDurationUnit(currentValue?.[2] === 'ms' ? 'ms' : 's');
+    setOpenSsmlMenu('时长');
+  };
+
+  const applyAudioDuration = () => {
+    const segment = activeSegment;
+    if (!segment || !audioDurationValue.trim()) return;
+    const isMilliseconds = audioDurationUnit === 'ms';
+    const maximum = isMilliseconds ? 300000 : 300;
+    const minimum = isMilliseconds ? 1 : 0.001;
+    const fallback = isMilliseconds ? 2000 : 2;
+    const bounded = boundedNumber(audioDurationValue, minimum, maximum, fallback);
+    const normalized = isMilliseconds ? Math.round(bounded) : Math.round(bounded * 1000) / 1000;
+    const duration = `${normalized}${audioDurationUnit}`;
+    updateSegment(segment.id, { audioDuration: duration });
+    setAudioDurationValue(String(normalized));
+    setOpenSsmlMenu(null);
+    setMessage(`已将片段“${segment.name || '未命名角色'}”的输出时长设置为 ${duration}。`);
+  };
+
+  const clearAudioDuration = () => {
+    const segment = activeSegment;
+    if (!segment?.audioDuration) return;
+    updateSegment(segment.id, { audioDuration: undefined });
+    setOpenSsmlMenu(null);
+    setMessage(`已清除片段“${segment.name || '未命名角色'}”的输出时长设置。`);
+  };
+
+  const insertProsody = () => {
+    const segment = activeSegment;
+    if (!segment) return;
+    const attributes = [
+      ['pitch', prosodyPitch],
+      ['range', prosodyRange],
+      ['rate', prosodyRate],
+      ['volume', prosodyVolume],
+      ['contour', prosodyContour],
+    ].filter(([, value]) => value.trim()).map(([name, value]) => `${name}="${escapeXml(value.trim())}"`);
+    if (!attributes.length) return;
+    const selection = segmentSelections.current.get(segment.id) ?? { from: segment.text.length, to: segment.text.length };
+    const start = Math.max(0, Math.min(selection.from, segment.text.length));
+    const end = Math.max(start, Math.min(selection.to, segment.text.length));
+    const selected = segment.text.slice(start, end) || '要调整的内容';
+    const replacement = `<prosody ${attributes.join(' ')}>${selected}</prosody>`;
+    const nextText = `${segment.text.slice(0, start)}${replacement}${segment.text.slice(end)}`;
+    segmentSelections.current.set(segment.id, { from: start, to: start + replacement.length });
+    updateSegment(segment.id, { text: nextText });
+    setOpenSsmlMenu(null);
+    setMessage(`已插入韵律标记：${attributes.map((attribute) => attribute.split('=')[0]).join('、')}。`);
   };
 
   const addSegment = () => {
@@ -458,6 +573,37 @@ export function EditorPage() {
     setBackgroundDialogOpen(true);
   };
 
+  const openSoundEffectDialog = () => {
+    if (!activeSegment) return;
+    const selection = segmentSelections.current.get(activeSegment.id) ?? { from: activeSegment.text.length, to: activeSegment.text.length };
+    const selectedText = activeSegment.text.slice(selection.from, selection.to);
+    setOpenSsmlMenu(null);
+    setSoundEffectKeyword('');
+    setSoundEffectCategory('');
+    setSoundEffectTag('');
+    setSoundEffectDraftId(null);
+    setSoundEffectFallback(selectedText);
+    setSoundEffectDialogOpen(true);
+  };
+
+  const confirmSoundEffect = () => {
+    const effect = soundEffects.find((item) => item.id === soundEffectDraftId);
+    const segment = activeSegment;
+    if (!effect || !segment) return;
+    const selection = segmentSelections.current.get(segment.id) ?? { from: segment.text.length, to: segment.text.length };
+    const start = Math.max(0, Math.min(selection.from, segment.text.length));
+    const end = Math.max(start, Math.min(selection.to, segment.text.length));
+    const fallback = soundEffectFallback.trim();
+    const replacement = fallback
+      ? `<audio src="${escapeXml(effect.url)}">${escapeXml(fallback)}</audio>`
+      : `<audio src="${escapeXml(effect.url)}"/>`;
+    const nextText = `${segment.text.slice(0, start)}${replacement}${segment.text.slice(end)}`;
+    segmentSelections.current.set(segment.id, { from: start, to: start + replacement.length });
+    updateSegment(segment.id, { text: nextText });
+    setSoundEffectDialogOpen(false);
+    setMessage(`已将音效“${effect.title}”插入片段“${segment.name || '未命名片段'}”。`);
+  };
+
   const confirmBackgroundAudio = () => {
     const music = backgroundMusic.find((item) => item.id === backgroundDraft.musicId);
     if (!music) return;
@@ -507,6 +653,49 @@ export function EditorPage() {
               {ssmlToolGroups.map((group, groupIndex) => {
                 const Icon = ssmlToolIcons[groupIndex];
                 const isOpen = openSsmlMenu === group.label;
+                if (group.label === '停顿') return <div className={`ssml-tool-menu ${isOpen ? 'open' : ''}`} key={group.label}>
+                  <button type="button" aria-expanded={isOpen} onClick={() => setOpenSsmlMenu(isOpen ? null : group.label)}><Icon size={14} /><span>{group.label}</span><ChevronDown size={12} /></button>
+                  {isOpen && <div className="ssml-tool-popover break-tool-popover">
+                    <div className="break-mode-tabs"><button className={breakMode === 'strength' ? 'active' : ''} onClick={() => setBreakMode('strength')}>相对强度</button><button className={breakMode === 'time' ? 'active' : ''} onClick={() => setBreakMode('time')}>自定义时长</button></div>
+                    {breakMode === 'strength' ? <label className="break-tool-field"><span>停顿强度</span><select value={breakStrength} onChange={(event) => setBreakStrength(event.target.value as BreakStrength)}><option value="x-weak">x-weak · 约 250ms</option><option value="weak">weak · 约 500ms</option><option value="medium">medium · 约 750ms</option><option value="strong">strong · 约 1000ms</option><option value="x-strong">x-strong · 约 1250ms</option></select></label> : <label className="break-tool-field"><span>停顿时长 <em>0–20000ms</em></span><div><input type="number" min="0" max="20000" step="50" value={breakTime} onChange={(event) => setBreakTime(event.target.value)} /><small>ms</small></div></label>}
+                    <p>{breakMode === 'time' ? '设置绝对时长后，Azure 会忽略强度属性。' : '使用 Azure 定义的相对停顿等级。'}</p>
+                    <button className="break-insert-button" onClick={insertBreak}><Pause size={13} />插入停顿</button>
+                  </div>}
+                </div>;
+                if (group.label === '时长') return <div className={`ssml-tool-menu ${isOpen ? 'open' : ''}`} key={group.label}>
+                  <button type="button" aria-expanded={isOpen} onClick={openAudioDurationMenu}><Icon size={14} /><span>{group.label}</span><ChevronDown size={12} /></button>
+                  {isOpen && <div className="ssml-tool-popover break-tool-popover duration-tool-popover">
+                    <div className="prosody-tool-heading"><b>调整当前片段的输出时长</b><small>目标片段：{activeSegment?.name || '未命名片段'}</small></div>
+                    <label className="break-tool-field"><span>输出时长 <em>最大 300 秒</em></span><div className="duration-value-control"><input type="number" min={audioDurationUnit === 'ms' ? 1 : 0.001} max={audioDurationUnit === 'ms' ? 300000 : 300} step={audioDurationUnit === 'ms' ? 100 : 0.1} value={audioDurationValue} onChange={(event) => setAudioDurationValue(event.target.value)} /><select value={audioDurationUnit} onChange={(event) => setAudioDurationUnit(event.target.value as 's' | 'ms')} aria-label="时长单位"><option value="s">秒 s</option><option value="ms">毫秒 ms</option></select></div></label>
+                    <p><code>mstts:audioduration</code> 会调整当前片段内全部文本，目标时长应为原始音频的 0.5–2 倍。</p>
+                    <div className="duration-tool-actions">{activeSegment?.audioDuration && <button className="duration-clear-button" onClick={clearAudioDuration}>清除 {activeSegment.audioDuration}</button>}<button className="break-insert-button" onClick={applyAudioDuration} disabled={!audioDurationValue.trim()}><Timer size={13} />应用时长</button></div>
+                  </div>}
+                </div>;
+                if (group.label === '韵律') {
+                  const hasProsodyValue = [prosodyPitch, prosodyRange, prosodyRate, prosodyVolume, prosodyContour].some((value) => value.trim());
+                  return <div className={`ssml-tool-menu ${isOpen ? 'open' : ''}`} key={group.label}>
+                    <button type="button" aria-expanded={isOpen} onClick={() => setOpenSsmlMenu(isOpen ? null : group.label)}><Icon size={14} /><span>{group.label}</span><ChevronDown size={12} /></button>
+                    {isOpen && <div className="ssml-tool-popover prosody-tool-popover">
+                      <div className="prosody-tool-heading"><b>调整所选文字的韵律</b><small>留空的属性不会写入 SSML</small></div>
+                      <div className="prosody-tool-grid">
+                        <label><span>音高 pitch</span><input list="prosody-pitch-values" value={prosodyPitch} onChange={(event) => setProsodyPitch(event.target.value)} placeholder="例如：high、+20%" /></label>
+                        <label><span>音域 range</span><input list="prosody-range-values" value={prosodyRange} onChange={(event) => setProsodyRange(event.target.value)} placeholder="例如：medium、+2st" /></label>
+                        <label><span>语速 rate</span><input list="prosody-rate-values" value={prosodyRate} onChange={(event) => setProsodyRate(event.target.value)} placeholder="例如：fast、+30%" /></label>
+                        <label><span>音量 volume</span><input list="prosody-volume-values" value={prosodyVolume} onChange={(event) => setProsodyVolume(event.target.value)} placeholder="例如：loud、+20%" /></label>
+                        <label className="prosody-contour-field"><span>音高轮廓 contour</span><input value={prosodyContour} onChange={(event) => setProsodyContour(event.target.value)} placeholder="例如：(0%,+20Hz) (10%,-2st) (40%,+10Hz)" /></label>
+                      </div>
+                      <datalist id="prosody-pitch-values"><option value="x-low" /><option value="low" /><option value="medium" label="默认值" /><option value="high" /><option value="x-high" /><option value="+20%" /><option value="-20%" /><option value="+80Hz" /><option value="-2st" /></datalist>
+                      <datalist id="prosody-range-values"><option value="x-low" /><option value="low" /><option value="medium" label="默认值" /><option value="high" /><option value="x-high" /><option value="+20%" /><option value="+2st" /></datalist>
+                      <datalist id="prosody-rate-values"><option value="x-slow" /><option value="slow" /><option value="medium" label="默认值（1.0x）" /><option value="fast" /><option value="x-fast" /><option value="0.5" /><option value="1" /><option value="2" /><option value="+30%" /></datalist>
+                      <datalist id="prosody-volume-values"><option value="silent" /><option value="x-soft" /><option value="soft" /><option value="medium" /><option value="loud" /><option value="x-loud" label="默认值（100）" /><option value="75" /><option value="+20%" /></datalist>
+                      <p>音高轮廓更适合完整句子或较长短语，单个词可能不会生效。</p>
+                      <button className="prosody-insert-button" onClick={insertProsody} disabled={!hasProsodyValue}><AudioWaveform size={13} />应用韵律</button>
+                    </div>}
+                  </div>;
+                }
+                if (group.label === '音效') return <div className="ssml-tool-menu" key={group.label}>
+                  <button type="button" aria-haspopup="dialog" onClick={openSoundEffectDialog}><Icon size={14} /><span>{group.label}</span></button>
+                </div>;
                 if (group.label === '背景音') return <div className="ssml-tool-menu" key={group.label}>
                   <button type="button" aria-haspopup="dialog" onClick={openBackgroundDialog}><Icon size={14} /><span>{group.label}</span></button>
                 </div>;
@@ -588,6 +777,27 @@ export function EditorPage() {
         </aside>
       </div>
     </div>
+    {soundEffectDialogOpen && <div className="background-audio-dialog-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setSoundEffectDialogOpen(false); }}>
+      <section className="background-audio-dialog sound-effect-picker-dialog" role="dialog" aria-modal="true" aria-labelledby="sound-effect-picker-title">
+        <header className="background-audio-dialog-header"><div><span><AudioLines size={20} /></span><div><h2 id="sound-effect-picker-title">插入音效</h2><p>选择录制音频，将其插入当前片段的光标或选区位置。</p></div></div><button className="icon-button" onClick={() => setSoundEffectDialogOpen(false)} aria-label="关闭音效选择"><X size={17} /></button></header>
+        <div className="background-audio-filters">
+          <div className="background-audio-search"><Search size={16} /><input value={soundEffectKeyword} onChange={(event) => setSoundEffectKeyword(event.target.value)} placeholder="搜索标题、分类、标签或链接" autoFocus /></div>
+          <select value={soundEffectCategory} onChange={(event) => setSoundEffectCategory(event.target.value)} aria-label="按音效分类筛选"><option value="">全部分类</option>{soundEffectCategories.map((item) => <option key={item} value={item}>{item}</option>)}</select>
+          <select value={soundEffectTag} onChange={(event) => setSoundEffectTag(event.target.value)} aria-label="按音效标签筛选"><option value="">全部标签</option>{soundEffectTags.map((item) => <option key={item} value={item}>{item}</option>)}</select>
+        </div>
+        <div className="background-audio-dialog-body sound-effect-picker-body">
+          <div className="background-audio-results">{soundEffectsLoading ? <p className="state-message">正在读取音效…</p> : soundEffectResults.length ? soundEffectResults.map((effect) => {
+            const selected = soundEffectDraftId === effect.id;
+            return <article className={`background-audio-option ${selected ? 'selected' : ''}`} key={effect.id}>
+              <button className="background-audio-option-main" onClick={() => setSoundEffectDraftId(effect.id)}><span className="background-audio-option-icon"><AudioLines size={17} /></span><span><b title={effect.title}>{effect.title}</b><small>{effect.category}</small><em>{effect.tags.length ? effect.tags.join(' · ') : '无标签'}</em></span>{selected && <CheckCircle2 size={17} />}</button>
+              <button className="icon-button" onClick={() => setTrack(effect.url, effect.title)} title={`试听${effect.title}`}><Play size={14} fill="currentColor" /></button>
+            </article>;
+          }) : <div className="background-audio-empty"><AudioLines size={28} /><b>{soundEffects.length ? '没有符合筛选条件的音效' : '音效库为空'}</b><span>{soundEffects.length ? '请调整搜索、分类或标签条件。' : '请先前往“音效中心”添加音效。'}</span></div>}</div>
+          <aside className="background-audio-options sound-effect-insert-options"><div><b>插入设置</b><small>目标片段：{activeSegment?.name || '未命名片段'}</small></div><label><span>播放失败时朗读的内容 <em>可选</em></span><textarea value={soundEffectFallback} maxLength={500} onChange={(event) => setSoundEffectFallback(event.target.value)} placeholder="音频无法播放时，Azure 将朗读这里的文字。留空则插入自闭合 audio 元素。" /></label><p>音频必须来自可访问 Internet、具有受信任 TLS/SSL 证书的 HTTPS 地址。文本与所有音频的总时长不能超过 600 秒，音频中不得包含敏感信息。</p></aside>
+        </div>
+        <footer className="background-audio-dialog-footer"><span>{soundEffectDraftId ? `已选择：${soundEffects.find((effect) => effect.id === soundEffectDraftId)?.title ?? ''}` : '请选择一个音效'}</span><div><button className="secondary-button" onClick={() => setSoundEffectDialogOpen(false)}>取消</button><button className="primary-button" onClick={confirmSoundEffect} disabled={!soundEffectDraftId}><AudioLines size={16} />确认插入</button></div></footer>
+      </section>
+    </div>}
     {backgroundDialogOpen && <div className="background-audio-dialog-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setBackgroundDialogOpen(false); }}>
       <section className="background-audio-dialog" role="dialog" aria-modal="true" aria-labelledby="background-audio-dialog-title">
         <header className="background-audio-dialog-header"><div><span><Music2 size={20} /></span><div><h2 id="background-audio-dialog-title">选择背景音乐</h2><p>每份 SSML 只能选择一首背景音乐，并在所有配音片段之前播放。</p></div></div><button className="icon-button" onClick={() => setBackgroundDialogOpen(false)} aria-label="关闭背景音乐选择"><X size={17} /></button></header>
