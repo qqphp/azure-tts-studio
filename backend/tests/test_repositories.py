@@ -9,6 +9,7 @@ from app.core import database
 from app.modules.history import repository as history_repository
 from app.modules.editor_roles import repository as editor_roles_repository
 from app.modules.sound_effects import repository as sound_effects_repository
+from app.modules.background_music import repository as background_music_repository
 from app.modules.voices import repository as voices_repository
 
 
@@ -60,3 +61,14 @@ class LocalRepositoryTests(unittest.TestCase):
             self.assertEqual(sound_effects_repository.list_sound_effects(), [])
             with self.assertRaisesRegex(ValueError, "音频文件格式无效"):
                 sound_effects_repository.create_sound_effect("无效", [], "其他", "https://example.com/file.txt")
+
+    def test_background_music_round_trip_uses_independent_table(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir, patch.object(database, "DATABASE_PATH", Path(temp_dir) / "studio.db"):
+            music = background_music_repository.create_background_music("轻柔钢琴", ["钢琴", "舒缓"], "轻音乐", "https://example.com/piano.mp3")
+            sound_effects_repository.create_sound_effect("提示音", ["短促"], "提示音", "https://example.com/notice.wav")
+            self.assertEqual(background_music_repository.list_background_music(), [music])
+            updated = background_music_repository.update_background_music(music["id"], "夜晚钢琴", ["钢琴"], "氛围", "https://example.com/night.flac")
+            self.assertEqual(updated["title"], "夜晚钢琴")
+            self.assertEqual(len(sound_effects_repository.list_sound_effects()), 1)
+            self.assertTrue(background_music_repository.delete_background_music(music["id"]))
+            self.assertEqual(background_music_repository.list_background_music(), [])

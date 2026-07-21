@@ -99,6 +99,19 @@ class ApiRegressionTests(unittest.TestCase):
             self.assertEqual(deleted.json()["deleted"], 2)
             self.assertEqual(self.client.get("/api/sound-effects").json(), [])
 
+    def test_background_music_crud_and_batch_delete(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir, patch.object(database, "DATABASE_PATH", Path(temp_dir) / "studio.db"):
+            first = self.client.post("/api/background-music", json={"title": "轻柔钢琴", "tags": ["钢琴"], "category": "轻音乐", "url": "https://example.com/piano.mp3"})
+            second = self.client.post("/api/background-music", json={"title": "片头音乐", "tags": ["片头"], "category": "影视", "url": "https://example.com/opening.wav"})
+            self.assertEqual(first.status_code, 201)
+            updated = self.client.patch(f"/api/background-music/{first.json()['id']}", json={"title": "夜晚钢琴", "tags": ["钢琴", "舒缓"], "category": "氛围", "url": "https://example.com/night.ogg"})
+            self.assertEqual(updated.status_code, 200)
+            self.assertEqual(updated.json()["title"], "夜晚钢琴")
+            self.assertEqual(len(self.client.get("/api/background-music").json()), 2)
+            deleted = self.client.post("/api/background-music/batch-delete", json={"ids": [first.json()["id"], second.json()["id"]]})
+            self.assertEqual(deleted.json()["deleted"], 2)
+            self.assertEqual(self.client.get("/api/background-music").json(), [])
+
 
 class ServiceRegressionTests(unittest.TestCase):
     def test_built_ssml_escapes_text_and_keeps_expression(self) -> None:

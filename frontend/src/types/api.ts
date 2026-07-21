@@ -37,6 +37,8 @@ export interface SoundEffect {
   createdAt: number;
 }
 
+export interface BackgroundMusic extends SoundEffect {}
+
 export interface Settings {
   endpoint: string;
   apiKey: string;

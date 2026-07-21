@@ -51,6 +51,16 @@ def connection() -> Iterator[sqlite3.Connection]:
                 created_at INTEGER NOT NULL
             )
         """)
+        db.execute("""
+            CREATE TABLE IF NOT EXISTS background_music (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                title TEXT NOT NULL,
+                tags_json TEXT NOT NULL DEFAULT '[]',
+                category TEXT NOT NULL,
+                url TEXT NOT NULL,
+                created_at INTEGER NOT NULL
+            )
+        """)
         role_columns = {row[1] for row in db.execute("PRAGMA table_info(editor_roles)").fetchall()}
         if "rate" not in role_columns:
             db.execute("ALTER TABLE editor_roles ADD COLUMN rate TEXT NOT NULL DEFAULT 'medium'")

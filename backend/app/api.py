@@ -6,6 +6,7 @@ modules. Existing static clients therefore keep working during the migration.
 from fastapi import APIRouter, HTTPException
 
 from app.modules.ai_review.router import router as ai_review_router
+from app.modules.background_music.router import router as background_music_router
 from app.modules.editor_roles.router import router as editor_roles_router
 from app.modules.history.router import router as history_router
 from app.modules.settings.router import router as settings_router
@@ -20,6 +21,7 @@ router.include_router(settings_router)
 router.include_router(voices_router)
 router.include_router(editor_roles_router)
 router.include_router(sound_effects_router)
+router.include_router(background_music_router)
 router.include_router(synthesis_router)
 router.include_router(history_router)
 router.include_router(ai_review_router)

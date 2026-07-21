@@ -12,6 +12,7 @@ import {
   Heart,
   LoaderCircle,
   Languages,
+  Music2,
   Pencil,
   Play,
   Plus,
@@ -56,9 +57,10 @@ const ssmlToolGroups: { label: string; tools: SsmlTool[] }[] = [
   { label: '停顿', tools: [] },
   { label: '静音', tools: [] },
   { label: '音效', tools: [] },
+  { label: '背景音', tools: [] },
 ];
 
-const ssmlToolIcons = [Heart, Languages, Users, Gauge, Pause, VolumeX, AudioLines];
+const ssmlToolIcons = [Heart, Languages, Users, Gauge, Pause, VolumeX, AudioLines, Music2];
 
 const starterSegments: EditorSegment[] = [
   {

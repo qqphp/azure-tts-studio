@@ -2,13 +2,30 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { readSheet, type Row as ExcelRow } from 'read-excel-file/browser';
 import writeXlsxFile, { type Cell } from 'write-excel-file/browser';
-import { AudioLines, ChevronLeft, ChevronRight, Download, ExternalLink, FileDown, Pencil, Play, Plus, Search, Tags, Trash2, Upload, X } from 'lucide-react';
+import { AudioLines, ChevronLeft, ChevronRight, Download, ExternalLink, FileDown, Pencil, Play, Plus, Search, Tags, Trash2, Upload, X, type LucideIcon } from 'lucide-react';
 import { PageHeader } from '../components/ui/PageHeader';
 import { api } from '../services/api';
 import { usePlayerStore } from '../stores/player-store';
 import type { SoundEffect } from '../types/api';
 
 type SoundEffectForm = { title: string; tags: string; category: string; url: string };
+export type AudioLibraryConfig = {
+  queryKey: string;
+  noun: string;
+  title: string;
+  eyebrow: string;
+  description: string;
+  icon: LucideIcon;
+  categoryPlaceholder: string;
+  templateFileName: string;
+  dataFileName: string;
+  sheetName: string;
+  list: () => Promise<SoundEffect[]>;
+  create: (data: Omit<SoundEffect, 'id' | 'createdAt'>) => Promise<SoundEffect>;
+  update: (id: number, data: Omit<SoundEffect, 'id' | 'createdAt'>) => Promise<SoundEffect>;
+  remove: (id: number) => Promise<{ ok: boolean }>;
+  batchRemove: (ids: number[]) => Promise<{ ok: boolean; deleted: number; missing: number[] }>;
+};
 const emptyForm: SoundEffectForm = { title: '', tags: '', category: '', url: '' };
 const PAGE_SIZE = 10;
 const IMPORT_HEADERS = ['标题', '标签', '分类', '链接'];
@@ -17,7 +34,7 @@ const splitTags = (value: string) => [...new Set(value.split(/[,，]/).map((tag)
 const excelHeader = (value: string): Cell => ({ value, type: String, fontWeight: 'bold', textColor: '#FFFFFF', backgroundColor: '#3F8068', align: 'center' });
 const excelColumns = [{ width: 24 }, { width: 28 }, { width: 18 }, { width: 60 }, { width: 22 }];
 
-const downloadWorkbook = async (effects: SoundEffect[], fileName: string, includeCreatedAt: boolean) => {
+const downloadWorkbook = async (effects: SoundEffect[], fileName: string, sheetName: string, includeCreatedAt: boolean) => {
   const rows: Cell[][] = [
     [...IMPORT_HEADERS, ...(includeCreatedAt ? ['创建时间'] : [])].map(excelHeader),
     ...effects.map((effect) => [
@@ -28,11 +45,12 @@ const downloadWorkbook = async (effects: SoundEffect[], fileName: string, includ
       ...(includeCreatedAt ? [{ value: new Date(effect.createdAt * 1000), type: Date, format: 'yyyy-mm-dd hh:mm:ss' } as Cell] : []),
     ]),
   ];
-  await writeXlsxFile(rows, { columns: excelColumns.slice(0, includeCreatedAt ? 5 : 4), sheet: '音效数据', stickyRowsCount: 1 }).toFile(fileName);
+  await writeXlsxFile(rows, { columns: excelColumns.slice(0, includeCreatedAt ? 5 : 4), sheet: sheetName, stickyRowsCount: 1 }).toFile(fileName);
 };
 
-export function SoundEffectsPage() {
+export function AudioLibraryPage({ config }: { config: AudioLibraryConfig }) {
   const client = useQueryClient();
+  const Icon = config.icon;
   const setTrack = usePlayerStore((state) => state.setTrack);
   const selectAllRef = useRef<HTMLInputElement>(null);
   const importInputRef = useRef<HTMLInputElement>(null);
@@ -47,7 +65,7 @@ export function SoundEffectsPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [importStatus, setImportStatus] = useState('');
 
-  const { data: effects = [], isLoading, error } = useQuery({ queryKey: ['sound-effects'], queryFn: api.soundEffects });
+  const { data: effects = [], isLoading, error } = useQuery({ queryKey: [config.queryKey], queryFn: config.list });
   const categories = useMemo(() => [...new Set(effects.map((effect) => effect.category))].sort((a, b) => a.localeCompare(b, 'zh-CN')), [effects]);
   const tags = useMemo(() => [...new Set(effects.flatMap((effect) => effect.tags))].sort((a, b) => a.localeCompare(b, 'zh-CN')), [effects]);
   const filteredEffects = useMemo(() => {
@@ -89,11 +107,11 @@ export function SoundEffectsPage() {
     setFormError('');
     setDialogOpen(true);
   };
-  const refresh = () => client.invalidateQueries({ queryKey: ['sound-effects'] });
-  const createEffect = useMutation({ mutationFn: api.createSoundEffect, onSuccess: () => { closeDialog(); refresh(); }, onError: (cause) => setFormError(cause instanceof Error ? cause.message : '添加音效失败') });
-  const updateEffect = useMutation({ mutationFn: ({ id, data }: { id: number; data: Omit<SoundEffect, 'id' | 'createdAt'> }) => api.updateSoundEffect(id, data), onSuccess: () => { closeDialog(); refresh(); }, onError: (cause) => setFormError(cause instanceof Error ? cause.message : '编辑音效失败') });
-  const deleteEffect = useMutation({ mutationFn: api.deleteSoundEffect, onSuccess: refresh });
-  const batchDelete = useMutation({ mutationFn: api.deleteSoundEffectsBatch, onSuccess: () => { setSelectedIds([]); refresh(); } });
+  const refresh = () => client.invalidateQueries({ queryKey: [config.queryKey] });
+  const createEffect = useMutation({ mutationFn: config.create, onSuccess: () => { closeDialog(); refresh(); }, onError: (cause) => setFormError(cause instanceof Error ? cause.message : `添加${config.noun}失败`) });
+  const updateEffect = useMutation({ mutationFn: ({ id, data }: { id: number; data: Omit<SoundEffect, 'id' | 'createdAt'> }) => config.update(id, data), onSuccess: () => { closeDialog(); refresh(); }, onError: (cause) => setFormError(cause instanceof Error ? cause.message : `编辑${config.noun}失败`) });
+  const deleteEffect = useMutation({ mutationFn: config.remove, onSuccess: refresh });
+  const batchDelete = useMutation({ mutationFn: config.batchRemove, onSuccess: () => { setSelectedIds([]); refresh(); } });
   const importEffects = useMutation({
     mutationFn: async (file: File) => {
       const rows = await readSheet(file);
@@ -108,12 +126,12 @@ export function SoundEffectsPage() {
         category: String(row[indexes[2]] ?? '').trim(),
         url: String(row[indexes[3]] ?? '').trim(),
       })).filter((record) => record.title || record.category || record.url || record.tags.length);
-      if (!records.length) throw new Error('Excel 文件中没有可导入的音效数据');
+      if (!records.length) throw new Error(`Excel 文件中没有可导入的${config.noun}数据`);
       let created = 0;
       const failures: string[] = [];
       for (const record of records) {
         try {
-          await api.createSoundEffect({ title: record.title, tags: record.tags, category: record.category, url: record.url });
+          await config.create({ title: record.title, tags: record.tags, category: record.category, url: record.url });
           created += 1;
         } catch (cause) {
           failures.push(`第 ${record.rowNumber} 行：${cause instanceof Error ? cause.message : '导入失败'}`);
@@ -123,7 +141,7 @@ export function SoundEffectsPage() {
     },
     onSuccess: ({ created, failures }) => {
       refresh();
-      setImportStatus(failures.length ? `成功导入 ${created} 条，${failures.length} 条失败：${failures.slice(0, 2).join('；')}` : `成功导入 ${created} 条音效。`);
+      setImportStatus(failures.length ? `成功导入 ${created} 条，${failures.length} 条失败：${failures.slice(0, 2).join('；')}` : `成功导入 ${created} 条${config.noun}。`);
     },
     onError: (cause) => setImportStatus(cause instanceof Error ? cause.message : '导入失败'),
   });
@@ -139,10 +157,10 @@ export function SoundEffectsPage() {
     else createEffect.mutate(data);
   };
   const removeOne = (effect: SoundEffect) => {
-    if (window.confirm(`确定删除音效“${effect.title}”吗？`)) deleteEffect.mutate(effect.id);
+    if (window.confirm(`确定删除${config.noun}“${effect.title}”吗？`)) deleteEffect.mutate(effect.id);
   };
   const removeSelected = () => {
-    if (selectedIds.length && window.confirm(`确定删除选中的 ${selectedIds.length} 个音效吗？此操作不可撤销。`)) batchDelete.mutate(selectedIds);
+    if (selectedIds.length && window.confirm(`确定删除选中的 ${selectedIds.length} 个${config.noun}吗？此操作不可撤销。`)) batchDelete.mutate(selectedIds);
   };
   const toggleOne = (id: number) => setSelectedIds((current) => current.includes(id) ? current.filter((item) => item !== id) : [...current, id]);
   const toggleAll = () => setSelectedIds((current) => allSelected
@@ -156,21 +174,21 @@ export function SoundEffectsPage() {
   const pending = createEffect.isPending || updateEffect.isPending;
 
   return <>
-    <PageHeader eyebrow="SOUND EFFECT LIBRARY" title="音效中心" description="集中管理配音中使用的环境声、转场、提示音和其他音频素材。" />
+    <PageHeader eyebrow={config.eyebrow} title={config.title} description={config.description} />
     <section className="sound-effects-filter card">
       <div className="sound-effects-search"><Search size={17} /><input value={keyword} onChange={(event) => setKeyword(event.target.value)} placeholder="搜索标题、分类、标签或链接" /></div>
       <select value={category} onChange={(event) => setCategory(event.target.value)} aria-label="按分类查看"><option value="">全部分类</option>{categories.map((item) => <option key={item} value={item}>{item}</option>)}</select>
       <select value={tag} onChange={(event) => setTag(event.target.value)} aria-label="按标签查看"><option value="">全部标签</option>{tags.map((item) => <option key={item} value={item}>{item}</option>)}</select>
-      <button className="primary-button" onClick={openCreateDialog}><Plus size={16} />添加音效</button>
+      <button className="primary-button" onClick={openCreateDialog}><Plus size={16} />添加{config.noun}</button>
     </section>
 
-    {isLoading ? <p className="state-message">正在读取音效…</p> : error ? <p className="state-message error">{error.message}</p> : <section className="sound-effects-table-card card">
+    {isLoading ? <p className="state-message">正在读取{config.noun}…</p> : error ? <p className="state-message error">{error.message}</p> : <section className="sound-effects-table-card card">
       <div className="sound-effects-table-toolbar">
         <label className="select-all-control"><input ref={selectAllRef} type="checkbox" checked={allSelected} onChange={toggleAll} disabled={!filteredEffects.length || batchDelete.isPending} /><span>{someSelected || selectedIds.length ? `已选 ${selectedIds.length} 项` : '全选'}</span></label>
-        <span>共 {effects.length} 个音效，当前筛选 {filteredEffects.length} 个{importStatus && <small className={importEffects.isError ? 'error' : ''}>{importStatus}</small>}</span>
+        <span>共 {effects.length} 个{config.noun}，当前筛选 {filteredEffects.length} 个{importStatus && <small className={importEffects.isError ? 'error' : ''}>{importStatus}</small>}</span>
         <div className="sound-effects-toolbar-actions">
-          <button className="secondary-button" onClick={() => downloadWorkbook([], '音效导入模板.xlsx', false)}><FileDown size={14} />导出模板</button>
-          <button className="secondary-button" disabled={!effects.length} onClick={() => downloadWorkbook(effects, '音效数据.xlsx', true)}><Download size={14} />导出数据</button>
+          <button className="secondary-button" onClick={() => downloadWorkbook([], config.templateFileName, config.sheetName, false)}><FileDown size={14} />导出模板</button>
+          <button className="secondary-button" disabled={!effects.length} onClick={() => downloadWorkbook(effects, config.dataFileName, config.sheetName, true)}><Download size={14} />导出数据</button>
           <button className="secondary-button" disabled={importEffects.isPending} onClick={() => importInputRef.current?.click()}><Upload size={14} />{importEffects.isPending ? '导入中…' : '导入数据'}</button>
           <input ref={importInputRef} className="sound-effects-file-input" type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" onChange={(event) => { importExcel(event.target.files?.[0]); event.target.value = ''; }} />
           <button className="secondary-button" disabled={!selectedIds.length || batchDelete.isPending} onClick={removeSelected}><Trash2 size={14} />批量删除</button>
@@ -181,13 +199,13 @@ export function SoundEffectsPage() {
           <thead><tr><th aria-label="选择"></th><th>标题</th><th>标签</th><th>分类</th><th>链接</th><th>创建时间</th><th>操作</th></tr></thead>
           <tbody>{filteredEffects.length ? visibleEffects.map((effect) => <tr key={effect.id}>
             <td><input type="checkbox" checked={selectedIds.includes(effect.id)} onChange={() => toggleOne(effect.id)} aria-label={`选择${effect.title}`} /></td>
-            <td><span className="sound-effect-title"><AudioLines size={16} /><b title={effect.title}>{effect.title}</b></span></td>
+            <td><span className="sound-effect-title"><Icon size={16} /><b title={effect.title}>{effect.title}</b></span></td>
             <td><div className="sound-effect-tags">{effect.tags.length ? effect.tags.map((item) => <span key={item}>{item}</span>) : <em>无标签</em>}</div></td>
             <td><span className="sound-effect-category">{effect.category}</span></td>
             <td><a className="sound-effect-link" href={effect.url} target="_blank" rel="noreferrer" title={effect.url}><span>{effect.url}</span><ExternalLink size={13} /></a></td>
             <td>{new Date(effect.createdAt * 1000).toLocaleString('zh-CN', { hour12: false })}</td>
             <td><div className="sound-effect-actions"><button className="icon-button" onClick={() => setTrack(effect.url, effect.title)} title="播放"><Play size={15} fill="currentColor" /></button><button className="icon-button" onClick={() => openEditDialog(effect)} title="编辑"><Pencil size={15} /></button><button className="icon-button danger" disabled={deleteEffect.isPending || batchDelete.isPending} onClick={() => removeOne(effect)} title="删除"><Trash2 size={15} /></button></div></td>
-          </tr>) : <tr><td className="sound-effects-empty" colSpan={7}>{effects.length ? '没有符合筛选条件的音效。' : '还没有音效，点击“添加音效”创建第一条记录。'}</td></tr>}</tbody>
+          </tr>) : <tr><td className="sound-effects-empty" colSpan={7}>{effects.length ? `没有符合筛选条件的${config.noun}。` : `还没有${config.noun}，点击“添加${config.noun}”创建第一条记录。`}</td></tr>}</tbody>
         </table>
       </div>
       {filteredEffects.length > 0 && <div className="sound-effects-pagination"><span>第 {currentPage} / {pageCount} 页 · 每页 {PAGE_SIZE} 条</span><div><button className="pagination-button" disabled={currentPage === 1} onClick={() => setCurrentPage((page) => page - 1)} aria-label="上一页"><ChevronLeft size={16} /></button><button className="pagination-button" disabled={currentPage === pageCount} onClick={() => setCurrentPage((page) => page + 1)} aria-label="下一页"><ChevronRight size={16} /></button></div></div>}
@@ -195,10 +213,10 @@ export function SoundEffectsPage() {
 
     {dialogOpen && <div className="sound-effect-dialog-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget && !pending) closeDialog(); }}>
       <section className="sound-effect-dialog card" role="dialog" aria-modal="true" aria-labelledby="sound-effect-dialog-title">
-        <header><div><span><AudioLines size={19} /></span><div><h2 id="sound-effect-dialog-title">{editingEffect ? '编辑音效' : '添加音效'}</h2><p>保存可供专业配音使用的在线音频素材。</p></div></div><button className="icon-button" onClick={closeDialog} disabled={pending} aria-label="关闭"><X size={17} /></button></header>
+        <header><div><span><Icon size={19} /></span><div><h2 id="sound-effect-dialog-title">{editingEffect ? `编辑${config.noun}` : `添加${config.noun}`}</h2><p>保存可供专业配音使用的在线音频素材。</p></div></div><button className="icon-button" onClick={closeDialog} disabled={pending} aria-label="关闭"><X size={17} /></button></header>
         <div className="sound-effect-form">
           <label><span>标题 <b>*</b></span><input autoFocus value={form.title} maxLength={120} onChange={(event) => setForm({ ...form, title: event.target.value })} placeholder="例如：清晨鸟鸣" /></label>
-          <label><span>分类 <b>*</b></span><input value={form.category} maxLength={80} list="sound-effect-categories" onChange={(event) => setForm({ ...form, category: event.target.value })} placeholder="例如：环境音、转场、提示音" /><datalist id="sound-effect-categories">{categories.map((item) => <option key={item} value={item} />)}</datalist></label>
+          <label><span>分类 <b>*</b></span><input value={form.category} maxLength={80} list={`${config.queryKey}-categories`} onChange={(event) => setForm({ ...form, category: event.target.value })} placeholder={config.categoryPlaceholder} /><datalist id={`${config.queryKey}-categories`}>{categories.map((item) => <option key={item} value={item} />)}</datalist></label>
           <label className="sound-effect-tags-field"><span>标签</span><div><Tags size={15} /><input value={form.tags} onChange={(event) => setForm({ ...form, tags: event.target.value })} placeholder="使用逗号分隔，例如：自然, 森林, 清晨" /></div></label>
           <label className="sound-effect-url-field"><span>链接 <b>*</b></span><input value={form.url} maxLength={2048} onChange={(event) => setForm({ ...form, url: event.target.value })} placeholder="https://example.com/audio.mp3" /><small>音频文件必须是有效的 *.mp3、*.wav、*.opus、*.ogg、*.flac 或 *.wma 文件，音频文件的总时间不能超过 300 秒。</small><small>音频必须托管在可访问 Internet 的 HTTPS 终结点上。需要 HTTPS，托管文件的域必须提供有效的受信任的 TLS/SSL 证书。</small></label>
         </div>
@@ -206,4 +224,26 @@ export function SoundEffectsPage() {
       </section>
     </div>}
   </>;
+}
+
+const soundEffectsConfig: AudioLibraryConfig = {
+  queryKey: 'sound-effects',
+  noun: '音效',
+  title: '音效中心',
+  eyebrow: 'SOUND EFFECT LIBRARY',
+  description: '集中管理配音中使用的环境声、转场、提示音和其他音频素材。',
+  icon: AudioLines,
+  categoryPlaceholder: '例如：环境音、转场、提示音',
+  templateFileName: '音效导入模板.xlsx',
+  dataFileName: '音效数据.xlsx',
+  sheetName: '音效数据',
+  list: api.soundEffects,
+  create: api.createSoundEffect,
+  update: api.updateSoundEffect,
+  remove: api.deleteSoundEffect,
+  batchRemove: api.deleteSoundEffectsBatch,
+};
+
+export function SoundEffectsPage() {
+  return <AudioLibraryPage config={soundEffectsConfig} />;
 }

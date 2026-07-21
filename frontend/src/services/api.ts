@@ -1,4 +1,4 @@
-import type { AiReviewResult, ConnectionResult, EditorRole, HistoryItem, LlmConnectionResult, LlmModel, LlmProvider, Settings, SoundEffect, SsmlValidation, SynthesisResult, Voice } from '../types/api';
+import type { AiReviewResult, BackgroundMusic, ConnectionResult, EditorRole, HistoryItem, LlmConnectionResult, LlmModel, LlmProvider, Settings, SoundEffect, SsmlValidation, SynthesisResult, Voice } from '../types/api';
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
   const response = await fetch(path, options);
@@ -37,6 +37,17 @@ export const api = {
   }),
   deleteSoundEffect: (id: number) => request<{ ok: boolean }>(`/api/sound-effects/${id}`, { method: 'DELETE' }),
   deleteSoundEffectsBatch: (ids: number[]) => request<{ ok: boolean; deleted: number; missing: number[] }>('/api/sound-effects/batch-delete', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ids }),
+  }),
+  backgroundMusic: () => request<BackgroundMusic[]>('/api/background-music'),
+  createBackgroundMusic: (data: Omit<BackgroundMusic, 'id' | 'createdAt'>) => request<BackgroundMusic>('/api/background-music', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data),
+  }),
+  updateBackgroundMusic: (id: number, data: Omit<BackgroundMusic, 'id' | 'createdAt'>) => request<BackgroundMusic>(`/api/background-music/${id}`, {
+    method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data),
+  }),
+  deleteBackgroundMusic: (id: number) => request<{ ok: boolean }>(`/api/background-music/${id}`, { method: 'DELETE' }),
+  deleteBackgroundMusicBatch: (ids: number[]) => request<{ ok: boolean; deleted: number; missing: number[] }>('/api/background-music/batch-delete', {
     method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ids }),
   }),
   history: () => request<HistoryItem[]>('/api/history'),
