@@ -5,7 +5,7 @@ import { PageHeader } from '../components/ui/PageHeader';
 import { api } from '../services/api';
 import { usePlayerStore } from '../stores/player-store';
 
-const PAGE_SIZE = 8;
+const PAGE_SIZE = 10;
 
 export function HistoryPage() {
   const client = useQueryClient();
