@@ -12,7 +12,7 @@ const navItems = [
   { to: '/editor', label: '专业配音', icon: SlidersHorizontal },
   { to: '/voices', label: '音色中心', icon: Volume2 },
   { to: '/sound-effects', label: '音效中心', icon: AudioLines },
-  { to: '/history', label: '历史项目', icon: History },
+  { to: '/history', label: '历史配音', icon: History },
 ];
 
 export function AppShell() {
