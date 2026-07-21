@@ -28,7 +28,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { PageHeader } from '../components/ui/PageHeader';
 import { api } from '../services/api';
 import { usePlayerStore } from '../stores/player-store';
-import type { EditorRole, Voice } from '../types/api';
+import type { BackgroundMusic, EditorRole, Voice } from '../types/api';
 
 type EditorSegment = {
   id: string;
@@ -47,6 +47,13 @@ type SsmlTool = {
   open?: string;
   close?: string;
   insert?: string;
+};
+
+type BackgroundAudioSelection = {
+  music: BackgroundMusic;
+  volume: string;
+  fadeIn: string;
+  fadeOut: string;
 };
 
 const ssmlToolGroups: { label: string; tools: SsmlTool[] }[] = [
@@ -96,7 +103,12 @@ const escapeSsmlContent = (value: string) => value
   .map((part) => part.startsWith('<') && part.endsWith('>') ? part : escapeXml(part))
   .join('');
 
-const buildSsml = (segments: EditorSegment[]) => {
+const boundedNumber = (value: string, minimum: number, maximum: number, fallback: number) => {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? Math.min(maximum, Math.max(minimum, parsed)) : fallback;
+};
+
+const buildSsml = (segments: EditorSegment[], backgroundAudio?: BackgroundAudioSelection | null) => {
   const content = segments
     .filter((segment) => segment.text.trim())
     .map((segment) => {
@@ -111,7 +123,10 @@ const buildSsml = (segments: EditorSegment[]) => {
     })
     .join('\n');
 
-  return `<speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" xmlns:mstts="http://www.w3.org/2001/mstts" xml:lang="zh-CN">\n${content}\n</speak>`;
+  const background = backgroundAudio
+    ? `  <mstts:backgroundaudio src="${escapeXml(backgroundAudio.music.url)}" volume="${boundedNumber(backgroundAudio.volume, 0, 100, 1)}" fadein="${Math.round(boundedNumber(backgroundAudio.fadeIn, 0, 10000, 0))}" fadeout="${Math.round(boundedNumber(backgroundAudio.fadeOut, 0, 10000, 0))}"/>\n`
+    : '';
+  return `<speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" xmlns:mstts="http://www.w3.org/2001/mstts" xml:lang="zh-CN">\n${background}${content}\n</speak>`;
 };
 
 const voiceName = (voice: Voice | undefined, fallback: string) => voice?.LocalName || voice?.DisplayName || fallback;
@@ -134,6 +149,7 @@ export function EditorPage() {
   const { data: settings } = useQuery({ queryKey: ['settings'], queryFn: api.settings });
   const { data: favoriteVoices = [], isLoading: favoritesLoading } = useQuery({ queryKey: ['voice-favorite-items'], queryFn: api.favoriteVoiceItems });
   const { data: savedRoles = [], isLoading: rolesLoading } = useQuery({ queryKey: ['editor-roles'], queryFn: api.editorRoles });
+  const { data: backgroundMusic = [], isLoading: backgroundMusicLoading } = useQuery({ queryKey: ['background-music'], queryFn: api.backgroundMusic });
   const [segments, setSegments] = useState<EditorSegment[]>(starterSegments);
   const [activeSegmentId, setActiveSegmentId] = useState(starterSegments[0].id);
   const [view, setView] = useState<'visual' | 'source'>('visual');
@@ -150,6 +166,12 @@ export function EditorPage() {
   const [editRoleRate, setEditRoleRate] = useState('medium');
   const [editRoleError, setEditRoleError] = useState('');
   const [openSsmlMenu, setOpenSsmlMenu] = useState<string | null>(null);
+  const [backgroundDialogOpen, setBackgroundDialogOpen] = useState(false);
+  const [backgroundKeyword, setBackgroundKeyword] = useState('');
+  const [backgroundCategory, setBackgroundCategory] = useState('');
+  const [backgroundTag, setBackgroundTag] = useState('');
+  const [backgroundAudio, setBackgroundAudio] = useState<BackgroundAudioSelection | null>(null);
+  const [backgroundDraft, setBackgroundDraft] = useState<{ musicId: number | null; volume: string; fadeIn: string; fadeOut: string }>({ musicId: null, volume: '1', fadeIn: '0', fadeOut: '0' });
   const hydrated = useRef(false);
   const repairingRoleIds = useRef(new Set<number>());
   const segmentSelections = useRef(new Map<string, { from: number; to: number }>());
@@ -210,7 +232,7 @@ export function EditorPage() {
     }));
   }, [savedRoles]);
 
-  const compiledSsml = useMemo(() => buildSsml(segments), [segments]);
+  const compiledSsml = useMemo(() => buildSsml(segments, backgroundAudio), [backgroundAudio, segments]);
   const activeSegment = segments.find((segment) => segment.id === activeSegmentId) ?? segments[0];
   const activeSsml = view === 'source' ? source : compiledSsml;
   const totalCharacters = useMemo(() => segments.reduce((total, segment) => total + segment.text.length, 0), [segments]);
@@ -221,6 +243,15 @@ export function EditorPage() {
     if (!keyword) return roleVoiceSource;
     return roleVoiceSource.filter((voice) => `${voice.ShortName} ${voice.LocalName ?? ''} ${voice.DisplayName ?? ''} ${voice.LocaleName ?? ''} ${voice.Locale ?? ''}`.toLowerCase().includes(keyword));
   }, [roleKeyword, roleVoiceSource]);
+  const backgroundCategories = useMemo(() => [...new Set(backgroundMusic.map((music) => music.category))].sort((a, b) => a.localeCompare(b, 'zh-CN')), [backgroundMusic]);
+  const backgroundTags = useMemo(() => [...new Set(backgroundMusic.flatMap((music) => music.tags))].sort((a, b) => a.localeCompare(b, 'zh-CN')), [backgroundMusic]);
+  const backgroundResults = useMemo(() => {
+    const keyword = backgroundKeyword.trim().toLowerCase();
+    return backgroundMusic.filter((music) => {
+      const matchesKeyword = !keyword || `${music.title} ${music.category} ${music.tags.join(' ')} ${music.url}`.toLowerCase().includes(keyword);
+      return matchesKeyword && (!backgroundCategory || music.category === backgroundCategory) && (!backgroundTag || music.tags.includes(backgroundTag));
+    });
+  }, [backgroundCategory, backgroundKeyword, backgroundMusic, backgroundTag]);
 
   const validate = useMutation({
     mutationFn: api.validateSsml,
@@ -416,16 +447,40 @@ export function EditorPage() {
     setMessage('');
   };
 
+  const openBackgroundDialog = () => {
+    setOpenSsmlMenu(null);
+    setBackgroundKeyword('');
+    setBackgroundCategory('');
+    setBackgroundTag('');
+    setBackgroundDraft(backgroundAudio
+      ? { musicId: backgroundAudio.music.id, volume: backgroundAudio.volume, fadeIn: backgroundAudio.fadeIn, fadeOut: backgroundAudio.fadeOut }
+      : { musicId: null, volume: '1', fadeIn: '0', fadeOut: '0' });
+    setBackgroundDialogOpen(true);
+  };
+
+  const confirmBackgroundAudio = () => {
+    const music = backgroundMusic.find((item) => item.id === backgroundDraft.musicId);
+    if (!music) return;
+    setBackgroundAudio({ music, volume: backgroundDraft.volume, fadeIn: backgroundDraft.fadeIn, fadeOut: backgroundDraft.fadeOut });
+    setBackgroundDialogOpen(false);
+    setMessage(`已选择背景音乐“${music.title}”，查看 SSML 源码或生成配音时会自动加入。`);
+  };
+
+  const updateBackgroundAudio = (patch: Partial<Omit<BackgroundAudioSelection, 'music'>>) => {
+    setBackgroundAudio((current) => current ? { ...current, ...patch } : current);
+  };
+
   const resetEditor = () => {
     if (!window.confirm('确定恢复为初始编排吗？当前内容将被替换。')) return;
     setSegments(starterSegments);
     setActiveSegmentId(starterSegments[0].id);
+    setBackgroundAudio(null);
     setSource(buildSsml(starterSegments));
     setView('visual');
     setMessage('已恢复初始编排。');
   };
 
-  const previewSegment = (segment: EditorSegment) => synthesize.mutate(buildSsml([segment]));
+  const previewSegment = (segment: EditorSegment) => synthesize.mutate(buildSsml([segment], backgroundAudio));
   const canGenerate = view === 'source' ? source.trim().length > 0 : segments.some((segment) => segment.text.trim());
 
   return <>
@@ -452,6 +507,9 @@ export function EditorPage() {
               {ssmlToolGroups.map((group, groupIndex) => {
                 const Icon = ssmlToolIcons[groupIndex];
                 const isOpen = openSsmlMenu === group.label;
+                if (group.label === '背景音') return <div className="ssml-tool-menu" key={group.label}>
+                  <button type="button" aria-haspopup="dialog" onClick={openBackgroundDialog}><Icon size={14} /><span>{group.label}</span></button>
+                </div>;
                 return <div className={`ssml-tool-menu ${isOpen ? 'open' : ''}`} key={group.label}>
                   <button type="button" aria-expanded={isOpen} onClick={() => setOpenSsmlMenu(isOpen ? null : group.label)}><Icon size={14} /><span>{group.label}</span><ChevronDown size={12} /></button>
                   {isOpen && <div className="ssml-tool-popover">{group.tools.length
@@ -461,6 +519,15 @@ export function EditorPage() {
                 </div>;
               })}
             </div>
+          </div>}
+          {view === 'visual' && backgroundAudio && <div className="selected-background-audio" aria-label="已选择的背景音乐">
+            <div className="selected-background-main"><span className="selected-background-icon"><Music2 size={16} /></span><span><b title={backgroundAudio.music.title}>{backgroundAudio.music.title}</b><small>{backgroundAudio.music.category}{backgroundAudio.music.tags.length ? ` · ${backgroundAudio.music.tags.join('、')}` : ''}</small></span></div>
+            <div className="selected-background-settings">
+              <label><span>音量</span><input type="number" min="0" max="100" step="0.1" value={backgroundAudio.volume} onChange={(event) => updateBackgroundAudio({ volume: event.target.value })} /></label>
+              <label><span>淡入 ms</span><input type="number" min="0" max="10000" step="100" value={backgroundAudio.fadeIn} onChange={(event) => updateBackgroundAudio({ fadeIn: event.target.value })} /></label>
+              <label><span>淡出 ms</span><input type="number" min="0" max="10000" step="100" value={backgroundAudio.fadeOut} onChange={(event) => updateBackgroundAudio({ fadeOut: event.target.value })} /></label>
+            </div>
+            <div className="selected-background-actions"><button className="icon-button" title="试听背景音乐" onClick={() => setTrack(backgroundAudio.music.url, backgroundAudio.music.title)}><Play size={14} fill="currentColor" /></button><button className="secondary-button" onClick={openBackgroundDialog}>更换</button><button className="icon-button danger" title="移除背景音乐" onClick={() => { setBackgroundAudio(null); setMessage('已移除背景音乐。'); }}><Trash2 size={14} /></button></div>
           </div>}
           {view === 'visual' ? <div className="editor-segment-list">
             {segments.length ? segments.map((segment, index) => {
@@ -521,6 +588,27 @@ export function EditorPage() {
         </aside>
       </div>
     </div>
+    {backgroundDialogOpen && <div className="background-audio-dialog-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setBackgroundDialogOpen(false); }}>
+      <section className="background-audio-dialog" role="dialog" aria-modal="true" aria-labelledby="background-audio-dialog-title">
+        <header className="background-audio-dialog-header"><div><span><Music2 size={20} /></span><div><h2 id="background-audio-dialog-title">选择背景音乐</h2><p>每份 SSML 只能选择一首背景音乐，并在所有配音片段之前播放。</p></div></div><button className="icon-button" onClick={() => setBackgroundDialogOpen(false)} aria-label="关闭背景音乐选择"><X size={17} /></button></header>
+        <div className="background-audio-filters">
+          <div className="background-audio-search"><Search size={16} /><input value={backgroundKeyword} onChange={(event) => setBackgroundKeyword(event.target.value)} placeholder="搜索标题、分类、标签或链接" autoFocus /></div>
+          <select value={backgroundCategory} onChange={(event) => setBackgroundCategory(event.target.value)} aria-label="按背景音乐分类筛选"><option value="">全部分类</option>{backgroundCategories.map((item) => <option key={item} value={item}>{item}</option>)}</select>
+          <select value={backgroundTag} onChange={(event) => setBackgroundTag(event.target.value)} aria-label="按背景音乐标签筛选"><option value="">全部标签</option>{backgroundTags.map((item) => <option key={item} value={item}>{item}</option>)}</select>
+        </div>
+        <div className="background-audio-dialog-body">
+          <div className="background-audio-results">{backgroundMusicLoading ? <p className="state-message">正在读取背景音乐…</p> : backgroundResults.length ? backgroundResults.map((music) => {
+            const selected = backgroundDraft.musicId === music.id;
+            return <article className={`background-audio-option ${selected ? 'selected' : ''}`} key={music.id}>
+              <button className="background-audio-option-main" onClick={() => setBackgroundDraft((current) => ({ ...current, musicId: music.id }))}><span className="background-audio-option-icon"><Music2 size={17} /></span><span><b title={music.title}>{music.title}</b><small>{music.category}</small><em>{music.tags.length ? music.tags.join(' · ') : '无标签'}</em></span>{selected && <CheckCircle2 size={17} />}</button>
+              <button className="icon-button" onClick={() => setTrack(music.url, music.title)} title={`试听${music.title}`}><Play size={14} fill="currentColor" /></button>
+            </article>;
+          }) : <div className="background-audio-empty"><Music2 size={28} /><b>{backgroundMusic.length ? '没有符合筛选条件的背景音乐' : '背景音乐库为空'}</b><span>{backgroundMusic.length ? '请调整搜索、分类或标签条件。' : '请先前往“背景音乐”页面添加音乐。'}</span></div>}</div>
+          <aside className="background-audio-options"><div><b>背景音参数</b><small>根据 Azure SSML 的 mstts:backgroundaudio 属性设置。</small></div><label><span>音量 <em>0–100</em></span><input type="number" min="0" max="100" step="0.1" value={backgroundDraft.volume} onChange={(event) => setBackgroundDraft((current) => ({ ...current, volume: event.target.value }))} disabled={!backgroundDraft.musicId} /></label><label><span>淡入时间 <em>0–10000 ms</em></span><input type="number" min="0" max="10000" step="100" value={backgroundDraft.fadeIn} onChange={(event) => setBackgroundDraft((current) => ({ ...current, fadeIn: event.target.value }))} disabled={!backgroundDraft.musicId} /></label><label><span>淡出时间 <em>0–10000 ms</em></span><input type="number" min="0" max="10000" step="100" value={backgroundDraft.fadeOut} onChange={(event) => setBackgroundDraft((current) => ({ ...current, fadeOut: event.target.value }))} disabled={!backgroundDraft.musicId} /></label><p>音乐较短时会自动循环，并在配音开始和结束时按设置淡入、淡出。</p></aside>
+        </div>
+        <footer className="background-audio-dialog-footer"><span>{backgroundDraft.musicId ? `已选择：${backgroundMusic.find((music) => music.id === backgroundDraft.musicId)?.title ?? ''}` : '请选择一首背景音乐'}</span><div><button className="secondary-button" onClick={() => setBackgroundDialogOpen(false)}>取消</button><button className="primary-button" onClick={confirmBackgroundAudio} disabled={!backgroundDraft.musicId}><CheckCircle2 size={16} />确认选择</button></div></footer>
+      </section>
+    </div>}
     {roleDialogOpen && <div className="role-dialog-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget && !createRole.isPending) setRoleDialogOpen(false); }}>
       <section className="role-dialog" role="dialog" aria-modal="true" aria-labelledby="role-dialog-title">
         <header className="role-dialog-header"><div><span className="role-dialog-icon"><Users size={20} /></span><span><h2 id="role-dialog-title">添加角色</h2><p>设置角色名称，并从音色库中选择一个声音。</p></span></div><button className="icon-button" onClick={() => setRoleDialogOpen(false)} disabled={createRole.isPending} aria-label="关闭弹窗"><X size={17} /></button></header>
