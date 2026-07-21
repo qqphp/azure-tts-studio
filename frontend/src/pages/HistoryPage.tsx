@@ -52,7 +52,7 @@ export function HistoryPage() {
       <div className="history-table-head"><span aria-hidden="true"></span><span>内容</span><span>音色</span><span>创建时间</span><span>操作</span></div>
       <div className="history-rows">{records.length ? visibleRecords.map((record) => <div className="history-row" key={record.id}>
         <label className="row-checkbox"><input type="checkbox" checked={selectedIds.includes(record.id)} onChange={() => toggleSelected(record.id)} aria-label={`选择${record.text || '未命名配音'}`} /></label>
-        <div><b>{record.text || '未命名配音'}</b><small>{record.mode === 'professional' ? '专业编辑器' : '快速配音'}</small></div>
+        <div><b>{record.text || '未命名配音'}</b><small>{record.mode === 'professional' ? '专业配音' : '快速配音'}</small></div>
         <span>{record.voice || '未知音色'}</span>
         <span><Clock3 size={14} /> {new Date(record.ts * 1000).toLocaleString('zh-CN', { hour12: false })}</span>
         <span><button className="icon-button" onClick={() => setTrack(`/api/history/${record.id}`, record.voice || '历史配音')} title="播放"><Play size={16} /></button><a className="icon-button" title="下载" href={`/api/history/${record.id}`} download><Download size={16} /></a><button className="icon-button danger" disabled={deletion.isPending || batchDeletion.isPending} onClick={() => remove(record.id)} title="删除"><Trash2 size={16} /></button></span>

@@ -48,3 +48,14 @@ class EditorRoleUpdatePayload(BaseModel):
     name: str = Field(min_length=1, max_length=80)
     rate: str = "medium"
     voice: dict[str, Any] | None = None
+
+
+class SoundEffectPayload(BaseModel):
+    title: str = Field(min_length=1, max_length=120)
+    tags: list[str] = Field(default_factory=list, max_length=20)
+    category: str = Field(min_length=1, max_length=80)
+    url: str = Field(min_length=1, max_length=2048)
+
+
+class SoundEffectBatchDeletePayload(BaseModel):
+    ids: list[int] = Field(default_factory=list)

@@ -28,6 +28,15 @@ export interface EditorRole {
   createdAt: number;
 }
 
+export interface SoundEffect {
+  id: number;
+  title: string;
+  tags: string[];
+  category: string;
+  url: string;
+  createdAt: number;
+}
+
 export interface Settings {
   endpoint: string;
   apiKey: string;

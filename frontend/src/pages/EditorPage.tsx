@@ -2,20 +2,25 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { xml } from '@codemirror/lang-xml';
 import CodeMirror from '@uiw/react-codemirror';
 import {
+  AudioLines,
   CheckCircle2,
+  ChevronDown,
   Code2,
   Copy,
   FileCode2,
+  Gauge,
   Heart,
   LoaderCircle,
+  Languages,
   Pencil,
   Play,
   Plus,
+  Pause,
   RotateCcw,
   Search,
   Trash2,
   Users,
-  Volume2,
+  VolumeX,
   X,
 } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -26,6 +31,7 @@ import type { EditorRole, Voice } from '../types/api';
 
 type EditorSegment = {
   id: string;
+  roleId?: number;
   name: string;
   voice: string;
   style: string;
@@ -33,6 +39,26 @@ type EditorSegment = {
   rate: string;
   text: string;
 };
+
+type SsmlTool = {
+  label: string;
+  hint: string;
+  open?: string;
+  close?: string;
+  insert?: string;
+};
+
+const ssmlToolGroups: { label: string; tools: SsmlTool[] }[] = [
+  { label: '情感', tools: [] },
+  { label: '副语言', tools: [] },
+  { label: '角色', tools: [] },
+  { label: '语速', tools: [] },
+  { label: '停顿', tools: [] },
+  { label: '静音', tools: [] },
+  { label: '音效', tools: [] },
+];
+
+const ssmlToolIcons = [Heart, Languages, Users, Gauge, Pause, VolumeX, AudioLines];
 
 const starterSegments: EditorSegment[] = [
   {
@@ -62,6 +88,12 @@ const escapeXml = (value: string) => value
   .replaceAll('"', '&quot;')
   .replaceAll("'", '&apos;');
 
+// Escape regular text while keeping the SSML elements inserted by the visual tools intact.
+const escapeSsmlContent = (value: string) => value
+  .split(/(<[^>]+>)/g)
+  .map((part) => part.startsWith('<') && part.endsWith('>') ? part : escapeXml(part))
+  .join('');
+
 const buildSsml = (segments: EditorSegment[]) => {
   const content = segments
     .filter((segment) => segment.text.trim())
@@ -70,7 +102,8 @@ const buildSsml = (segments: EditorSegment[]) => {
         segment.style ? `style="${escapeXml(segment.style)}"` : '',
         segment.role ? `role="${escapeXml(segment.role)}"` : '',
       ].filter(Boolean).join(' ');
-      const text = `<prosody rate="${escapeXml(segment.rate)}">${escapeXml(segment.text.trim())}</prosody>`;
+      // 片段编辑器允许用户通过可视化工具插入 SSML，因此这里保留片段中的 XML 标记。
+      const text = `<prosody rate="${escapeXml(segment.rate)}">${escapeSsmlContent(segment.text.trim())}</prosody>`;
       const expression = expressionAttributes ? `<mstts:express-as ${expressionAttributes}>${text}</mstts:express-as>` : text;
       return `  <voice name="${escapeXml(segment.voice)}">\n    ${expression}\n  </voice>`;
     })
@@ -100,6 +133,7 @@ export function EditorPage() {
   const { data: favoriteVoices = [], isLoading: favoritesLoading } = useQuery({ queryKey: ['voice-favorite-items'], queryFn: api.favoriteVoiceItems });
   const { data: savedRoles = [], isLoading: rolesLoading } = useQuery({ queryKey: ['editor-roles'], queryFn: api.editorRoles });
   const [segments, setSegments] = useState<EditorSegment[]>(starterSegments);
+  const [activeSegmentId, setActiveSegmentId] = useState(starterSegments[0].id);
   const [view, setView] = useState<'visual' | 'source'>('visual');
   const [source, setSource] = useState(() => buildSsml(starterSegments));
   const [message, setMessage] = useState('');
@@ -113,8 +147,26 @@ export function EditorPage() {
   const [editRoleName, setEditRoleName] = useState('');
   const [editRoleRate, setEditRoleRate] = useState('medium');
   const [editRoleError, setEditRoleError] = useState('');
+  const [openSsmlMenu, setOpenSsmlMenu] = useState<string | null>(null);
   const hydrated = useRef(false);
   const repairingRoleIds = useRef(new Set<number>());
+  const segmentSelections = useRef(new Map<string, { from: number; to: number }>());
+  const ssmlToolbarRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const closeMenu = (event: PointerEvent) => {
+      if (!ssmlToolbarRef.current?.contains(event.target as Node)) setOpenSsmlMenu(null);
+    };
+    const closeMenuWithKeyboard = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setOpenSsmlMenu(null);
+    };
+    document.addEventListener('pointerdown', closeMenu);
+    document.addEventListener('keydown', closeMenuWithKeyboard);
+    return () => {
+      document.removeEventListener('pointerdown', closeMenu);
+      document.removeEventListener('keydown', closeMenuWithKeyboard);
+    };
+  }, []);
 
   useEffect(() => {
     if (!voices.length || hydrated.current) return;
@@ -145,7 +197,19 @@ export function EditorPage() {
       .catch(() => repairs.forEach(({ role }) => repairingRoleIds.current.delete(role.id)));
   }, [client, savedRoles, voices]);
 
+  useEffect(() => {
+    if (!savedRoles.length) return;
+    setSegments((current) => current.map((segment) => {
+      const savedRole = segment.roleId
+        ? savedRoles.find((role) => role.id === segment.roleId)
+        : savedRoles.find((role) => role.name === segment.name);
+      if (!savedRole || (segment.roleId === savedRole.id && segment.name === savedRole.name)) return segment;
+      return { ...segment, roleId: savedRole.id, name: savedRole.name };
+    }));
+  }, [savedRoles]);
+
   const compiledSsml = useMemo(() => buildSsml(segments), [segments]);
+  const activeSegment = segments.find((segment) => segment.id === activeSegmentId) ?? segments[0];
   const activeSsml = view === 'source' ? source : compiledSsml;
   const totalCharacters = useMemo(() => segments.reduce((total, segment) => total + segment.text.length, 0), [segments]);
   const favoriteVoiceSet = useMemo(() => new Set(favoriteVoices.map((voice) => voice.ShortName)), [favoriteVoices]);
@@ -174,8 +238,10 @@ export function EditorPage() {
     mutationFn: api.createEditorRole,
     onSuccess: (role) => {
       client.invalidateQueries({ queryKey: ['editor-roles'] });
+      const segmentId = `segment-${Date.now()}`;
       setSegments((current) => [...current, {
-        id: `segment-${Date.now()}`,
+        id: segmentId,
+        roleId: role.id,
         name: role.name,
         voice: role.voice.ShortName,
         style: '',
@@ -183,6 +249,7 @@ export function EditorPage() {
         rate: role.rate || 'medium',
         text: '',
       }]);
+      setActiveSegmentId(segmentId);
       setRoleDialogOpen(false);
       setMessage(`角色“${role.name}”已保存，并添加到配音编排。`);
     },
@@ -192,6 +259,9 @@ export function EditorPage() {
     mutationFn: ({ id, name, rate }: { id: number; name: string; rate: string }) => api.updateEditorRole(id, { name, rate }),
     onSuccess: (role) => {
       client.invalidateQueries({ queryKey: ['editor-roles'] });
+      setSegments((current) => current.map((segment) => segment.roleId === role.id
+        ? { ...segment, name: role.name, rate: role.rate || segment.rate }
+        : segment));
       setEditingRole(null);
       setMessage(`角色“${role.name}”已更新，默认语速为 ${rateLabels[role.rate] || role.rate}。`);
     },
@@ -211,23 +281,57 @@ export function EditorPage() {
     setSegments((current) => current.map((segment) => segment.id === id ? { ...segment, ...patch } : segment));
   };
 
-  const addSegment = () => {
-    const defaultVoice = settings?.defaultVoice || voices[0]?.ShortName || 'zh-CN-XiaoxiaoNeural';
-    setSegments((current) => [...current, {
-      id: `segment-${Date.now()}`,
-      name: `角色 ${current.length + 1}`,
-      voice: defaultVoice,
+  const selectSegmentRole = (segmentId: string, roleId: string) => {
+    const selectedRole = savedRoles.find((role) => role.id === Number(roleId));
+    if (!selectedRole) return;
+    const roleVoice = resolveSavedVoice(selectedRole.voice, voices);
+    updateSegment(segmentId, {
+      roleId: selectedRole.id,
+      name: selectedRole.name,
+      voice: roleVoice.ShortName,
+      rate: selectedRole.rate || 'medium',
       style: '',
       role: '',
-      rate: 'medium',
+    });
+  };
+
+  const insertSsml = (tool: SsmlTool) => {
+    const segment = activeSegment;
+    if (!segment) return;
+    const selection = segmentSelections.current.get(segment.id) ?? { from: segment.text.length, to: segment.text.length };
+    const start = Math.max(0, Math.min(selection.from, segment.text.length));
+    const end = Math.max(start, Math.min(selection.to, segment.text.length));
+    const selected = segment.text.slice(start, end) || '要调整的内容';
+    const replacement = tool.insert ?? `${tool.open ?? ''}${selected}${tool.close ?? ''}`;
+    const nextText = `${segment.text.slice(0, start)}${replacement}${segment.text.slice(end)}`;
+    segmentSelections.current.set(segment.id, { from: start, to: start + replacement.length });
+    updateSegment(segment.id, { text: nextText });
+    setMessage(`已插入「${tool.label}」标记。可在编辑区直接修改属性值。`);
+  };
+
+  const addSegment = () => {
+    const initialRole = savedRoles[0];
+    const initialVoice = initialRole ? resolveSavedVoice(initialRole.voice, voices).ShortName : settings?.defaultVoice || voices[0]?.ShortName || 'zh-CN-XiaoxiaoNeural';
+    const id = `segment-${Date.now()}`;
+    setSegments((current) => [...current, {
+      id,
+      roleId: initialRole?.id,
+      name: initialRole?.name || '',
+      voice: initialVoice,
+      style: '',
+      role: '',
+      rate: initialRole?.rate || 'medium',
       text: '',
     }]);
+    setActiveSegmentId(id);
   };
 
   const addRoleSegment = (role: EditorRole) => {
     const roleVoice = resolveSavedVoice(role.voice, voices);
+    const id = `segment-${Date.now()}`;
     setSegments((current) => [...current, {
-      id: `segment-${Date.now()}`,
+      id,
+      roleId: role.id,
       name: role.name,
       voice: roleVoice.ShortName,
       style: '',
@@ -235,6 +339,7 @@ export function EditorPage() {
       rate: role.rate || 'medium',
       text: '',
     }]);
+    setActiveSegmentId(id);
     setMessage(`已使用角色“${role.name}”添加配音片段。`);
   };
 
@@ -296,7 +401,11 @@ export function EditorPage() {
 
   const removeSegment = (segment: EditorSegment) => {
     if (!window.confirm(`确定删除片段“${segment.name || '未命名角色'}”吗？\n删除后该片段的配音内容将无法恢复。`)) return;
-    setSegments((current) => current.filter((item) => item.id !== segment.id));
+    setSegments((current) => {
+      const next = current.filter((item) => item.id !== segment.id);
+      if (activeSegmentId === segment.id) setActiveSegmentId(next[0]?.id ?? '');
+      return next;
+    });
   };
 
   const switchView = () => {
@@ -308,6 +417,7 @@ export function EditorPage() {
   const resetEditor = () => {
     if (!window.confirm('确定恢复为初始编排吗？当前内容将被替换。')) return;
     setSegments(starterSegments);
+    setActiveSegmentId(starterSegments[0].id);
     setSource(buildSsml(starterSegments));
     setView('visual');
     setMessage('已恢复初始编排。');
@@ -335,13 +445,28 @@ export function EditorPage() {
 
       <div className="professional-editor-body">
         <section className="editor-workspace card">
+          {view === 'visual' && segments.length > 0 && <div className="workspace-ssml-toolbar" aria-label="SSML 可视化标记工具" ref={ssmlToolbarRef}>
+            <div className="segment-ssml-tools">
+              {ssmlToolGroups.map((group, groupIndex) => {
+                const Icon = ssmlToolIcons[groupIndex];
+                const isOpen = openSsmlMenu === group.label;
+                return <div className={`ssml-tool-menu ${isOpen ? 'open' : ''}`} key={group.label}>
+                  <button type="button" aria-expanded={isOpen} onClick={() => setOpenSsmlMenu(isOpen ? null : group.label)}><Icon size={14} /><span>{group.label}</span><ChevronDown size={12} /></button>
+                  {isOpen && <div className="ssml-tool-popover">{group.tools.length
+                    ? group.tools.map((tool) => <button key={tool.label} title={tool.hint} onClick={() => { insertSsml(tool); setOpenSsmlMenu(null); }}>{tool.label}<small>{tool.hint}</small></button>)
+                    : <div className="ssml-tool-empty">暂无可用选项</div>}
+                  </div>}
+                </div>;
+              })}
+            </div>
+          </div>}
           {view === 'visual' ? <div className="editor-segment-list">
             {segments.length ? segments.map((segment, index) => {
               const selectedVoice = voices.find((voice) => voice.ShortName === segment.voice);
-              return <article className="editor-segment" id={`editor-${segment.id}`} key={segment.id}>
+              return <article className={`editor-segment ${activeSegment?.id === segment.id ? 'active' : ''}`} id={`editor-${segment.id}`} key={segment.id} onFocusCapture={() => setActiveSegmentId(segment.id)} onMouseDown={() => setActiveSegmentId(segment.id)}>
                 <div className="segment-controls">
                   <span className="segment-number">{String(index + 1).padStart(2, '0')}</span>
-                  <label className="segment-role-name"><span>角色名称</span><input value={segment.name} onChange={(event) => updateSegment(segment.id, { name: event.target.value })} /></label>
+                  <label className="segment-role-name"><span>角色名称</span><select value={segment.roleId ? String(segment.roleId) : ''} onChange={(event) => selectSegmentRole(segment.id, event.target.value)} disabled={rolesLoading || !savedRoles.length}><option value="">{rolesLoading ? '正在读取角色…' : savedRoles.length ? '请选择角色' : '暂无可用角色'}</option>{savedRoles.map((savedRole) => <option key={savedRole.id} value={savedRole.id}>{savedRole.name}</option>)}</select></label>
                   <label><span>音色</span><select value={segment.voice} onChange={(event) => updateSegment(segment.id, { voice: event.target.value, style: '', role: '' })}>{voices.length ? voices.map((voice) => <option key={voice.ShortName} value={voice.ShortName}>{voiceName(voice, voice.ShortName)}</option>) : <option value={segment.voice}>{segment.voice}</option>}</select></label>
                   <label><span>风格</span><select value={segment.style} onChange={(event) => updateSegment(segment.id, { style: event.target.value })}><option value="">默认 · default</option>{selectedVoice?.StyleList?.map((style) => <option key={style} value={style}>{style}</option>)}</select></label>
                   <label><span>角色</span><select value={segment.role} onChange={(event) => updateSegment(segment.id, { role: event.target.value })}><option value="">默认 · default</option>{selectedVoice?.RolePlayList?.map((role) => <option key={role} value={role}>{role}</option>)}</select></label>
@@ -353,9 +478,23 @@ export function EditorPage() {
                   </div>
                 </div>
                 <div className="segment-text-wrap">
-                  <Volume2 size={18} />
-                  <textarea value={segment.text} maxLength={1000} onChange={(event) => updateSegment(segment.id, { text: event.target.value })} placeholder="输入这个角色要说的内容……" />
-                  <span className="segment-count">{segment.text.length} / 1000</span>
+                  <div className="segment-code-header"><span><Code2 size={14} />片段内容 / SSML</span><span>{(segment.text.match(/<[^>]+>/g) ?? []).length} 个标记 · {segment.text.length} / 1000</span></div>
+                  <CodeMirror
+                    className="segment-code-editor"
+                    value={segment.text}
+                    height="118px"
+                    extensions={[xml()]}
+                    placeholder="输入这个角色要说的内容；选中文字后可使用上方工具插入 SSML 标记……"
+                    onChange={(value) => updateSegment(segment.id, { text: value })}
+                    onUpdate={(update) => {
+                      if (update.selectionSet || update.focusChanged) {
+                        const selection = update.state.selection.main;
+                        segmentSelections.current.set(segment.id, { from: selection.from, to: selection.to });
+                        if (update.view.hasFocus) setActiveSegmentId(segment.id);
+                      }
+                    }}
+                    basicSetup={{ lineNumbers: false, foldGutter: false, highlightActiveLine: true }}
+                  />
                 </div>
               </article>;
             }) : <div className="editor-empty"><Users size={30} /><b>还没有配音片段</b><span>点击“添加片段”开始编排。</span><button className="primary-button" onClick={addSegment}><Plus size={16} />添加片段</button></div>}

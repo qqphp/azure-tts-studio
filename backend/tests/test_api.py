@@ -82,6 +82,23 @@ class ApiRegressionTests(unittest.TestCase):
             self.assertEqual(deleted.status_code, 200)
             self.assertEqual(self.client.get("/api/editor/roles").json(), [])
 
+    def test_sound_effect_crud_and_batch_delete(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir, patch.object(database, "DATABASE_PATH", Path(temp_dir) / "studio.db"):
+            invalid = self.client.post("/api/sound-effects", json={"title": "无效", "tags": [], "category": "其他", "url": "https://example.com/file.txt"})
+            self.assertEqual(invalid.status_code, 400)
+            first = self.client.post("/api/sound-effects", json={"title": "鸟鸣", "tags": ["自然"], "category": "环境音", "url": "https://example.com/birds.mp3"})
+            second = self.client.post("/api/sound-effects", json={"title": "转场", "tags": ["短促"], "category": "转场", "url": "https://example.com/switch.wav"})
+            self.assertEqual(first.status_code, 201)
+            updated = self.client.patch(f"/api/sound-effects/{first.json()['id']}", json={"title": "森林鸟鸣", "tags": ["自然", "森林"], "category": "环境音", "url": "https://example.com/birds.ogg"})
+            self.assertEqual(updated.status_code, 200)
+            self.assertEqual(updated.json()["title"], "森林鸟鸣")
+            listed = self.client.get("/api/sound-effects")
+            self.assertEqual(listed.status_code, 200)
+            self.assertEqual(len(listed.json()), 2)
+            deleted = self.client.post("/api/sound-effects/batch-delete", json={"ids": [first.json()["id"], second.json()["id"]]})
+            self.assertEqual(deleted.json()["deleted"], 2)
+            self.assertEqual(self.client.get("/api/sound-effects").json(), [])
+
 
 class ServiceRegressionTests(unittest.TestCase):
     def test_built_ssml_escapes_text_and_keeps_expression(self) -> None:

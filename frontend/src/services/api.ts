@@ -1,4 +1,4 @@
-import type { AiReviewResult, ConnectionResult, EditorRole, HistoryItem, LlmConnectionResult, LlmModel, LlmProvider, Settings, SsmlValidation, SynthesisResult, Voice } from '../types/api';
+import type { AiReviewResult, ConnectionResult, EditorRole, HistoryItem, LlmConnectionResult, LlmModel, LlmProvider, Settings, SoundEffect, SsmlValidation, SynthesisResult, Voice } from '../types/api';
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
   const response = await fetch(path, options);
@@ -28,6 +28,17 @@ export const api = {
     method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data),
   }),
   deleteEditorRole: (id: number) => request<{ ok: boolean }>(`/api/editor/roles/${id}`, { method: 'DELETE' }),
+  soundEffects: () => request<SoundEffect[]>('/api/sound-effects'),
+  createSoundEffect: (data: Omit<SoundEffect, 'id' | 'createdAt'>) => request<SoundEffect>('/api/sound-effects', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data),
+  }),
+  updateSoundEffect: (id: number, data: Omit<SoundEffect, 'id' | 'createdAt'>) => request<SoundEffect>(`/api/sound-effects/${id}`, {
+    method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data),
+  }),
+  deleteSoundEffect: (id: number) => request<{ ok: boolean }>(`/api/sound-effects/${id}`, { method: 'DELETE' }),
+  deleteSoundEffectsBatch: (ids: number[]) => request<{ ok: boolean; deleted: number; missing: number[] }>('/api/sound-effects/batch-delete', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ids }),
+  }),
   history: () => request<HistoryItem[]>('/api/history'),
   deleteHistory: (id: string) => request<{ ok: boolean }>(`/api/history/${id}`, { method: 'DELETE' }),
   deleteHistoryBatch: (ids: string[]) => request<{ ok: boolean; deleted: number; missing: string[] }>('/api/history/batch-delete', {

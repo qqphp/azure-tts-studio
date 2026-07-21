@@ -1,4 +1,4 @@
-import { History, Mic2, Settings, SlidersHorizontal, Sparkles, Volume2 } from 'lucide-react';
+import { AudioLines, History, Mic2, Settings, SlidersHorizontal, Sparkles, Volume2 } from 'lucide-react';
 import { NavLink, Outlet } from 'react-router-dom';
 import { AudioPlayer } from '../audio/AudioPlayer';
 import { usePlayerStore } from '../../stores/player-store';
@@ -11,6 +11,7 @@ const navItems = [
   { to: '/', label: '快速配音', icon: Mic2, end: true },
   { to: '/editor', label: '专业配音', icon: SlidersHorizontal },
   { to: '/voices', label: '音色中心', icon: Volume2 },
+  { to: '/sound-effects', label: '音效中心', icon: AudioLines },
   { to: '/history', label: '历史项目', icon: History },
 ];
 
