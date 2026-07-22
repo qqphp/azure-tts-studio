@@ -39,6 +39,7 @@
 .segment-actions { display: flex; align-items: center; gap: 3px; padding-bottom: 2px; }
 .segment-actions .icon-button { flex: 0 0 auto; margin: 0; }
 .segment-text-wrap { min-width: 0; margin-top: 12px; overflow: visible; border: 1px solid var(--theme-border); border-radius: 11px; background: var(--theme-card); color: var(--theme-accent); }
+.segment-duration-tip { display: flex; align-items: center; justify-content: flex-start; gap: 5px; margin-top: 9px; color: var(--theme-accent-deep); font-size: 9px; font-weight: 700; text-align: left; }.segment-duration-tip svg { flex: 0 0 auto; }
 .workspace-ssml-toolbar { position: relative; z-index: 4; flex: 0 0 auto; min-height: 52px; padding: 9px 14px; border-bottom: 1px solid var(--theme-border); background: color-mix(in srgb, var(--theme-surface) 68%, transparent); }
 .segment-ssml-tools { position: relative; display: flex; align-items: center; gap: 5px; }
 .ssml-tool-menu { position: relative; }

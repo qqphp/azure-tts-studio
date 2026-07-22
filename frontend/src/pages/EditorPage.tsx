@@ -122,6 +122,10 @@ const boundedNumber = (value: string, minimum: number, maximum: number, fallback
   return Number.isFinite(parsed) ? Math.min(maximum, Math.max(minimum, parsed)) : fallback;
 };
 
+const formatAudioDuration = (value: string) => value.endsWith('ms')
+  ? `${value.slice(0, -2)} 毫秒`
+  : `${value.slice(0, -1)} 秒`;
+
 const buildSsml = (segments: EditorSegment[], backgroundAudio?: BackgroundAudioSelection | null) => {
   const content = segments
     .filter((segment) => segment.text.trim())
@@ -667,7 +671,7 @@ export function EditorPage() {
                   {isOpen && <div className="ssml-tool-popover break-tool-popover duration-tool-popover">
                     <div className="prosody-tool-heading"><b>调整当前片段的输出时长</b><small>目标片段：{activeSegment?.name || '未命名片段'}</small></div>
                     <label className="break-tool-field"><span>输出时长 <em>最大 300 秒</em></span><div className="duration-value-control"><input type="number" min={audioDurationUnit === 'ms' ? 1 : 0.001} max={audioDurationUnit === 'ms' ? 300000 : 300} step={audioDurationUnit === 'ms' ? 100 : 0.1} value={audioDurationValue} onChange={(event) => setAudioDurationValue(event.target.value)} /><select value={audioDurationUnit} onChange={(event) => setAudioDurationUnit(event.target.value as 's' | 'ms')} aria-label="时长单位"><option value="s">秒 s</option><option value="ms">毫秒 ms</option></select></div></label>
-                    <p><code>mstts:audioduration</code> 会调整当前片段内全部文本，目标时长应为原始音频的 0.5–2 倍。</p>
+                    <p><code>mstts:audioduration</code> 会调整当前片段内全部文本，此值应介于原始音频的 0.5 到 2 倍，没有任何其他速率设置。 例如，如果请求的音频持续时间为 30s，则原始音频必须介于 15 到 60 秒之间。 </p>
                     <div className="duration-tool-actions">{activeSegment?.audioDuration && <button className="duration-clear-button" onClick={clearAudioDuration}>清除 {activeSegment.audioDuration}</button>}<button className="break-insert-button" onClick={applyAudioDuration} disabled={!audioDurationValue.trim()}><Timer size={13} />应用时长</button></div>
                   </div>}
                 </div>;
@@ -754,6 +758,7 @@ export function EditorPage() {
                     basicSetup={{ lineNumbers: false, foldGutter: false, highlightActiveLine: true }}
                   />
                 </div>
+                {segment.audioDuration && <div className="segment-duration-tip"><Timer size={13} /><span>该片段已设置时长为：{formatAudioDuration(segment.audioDuration)}</span></div>}
               </article>;
             }) : <div className="editor-empty"><Users size={30} /><b>还没有配音片段</b><span>点击“添加片段”开始编排。</span><button className="primary-button" onClick={addSegment}><Plus size={16} />添加片段</button></div>}
           </div> : <div className="editor-source-view"><div className="source-view-heading"><div><Code2 size={20} /><span><b>SSML 源码</b><small>可直接编辑 Azure Speech SSML 文档</small></span></div><span className="muted">{source.length} 字符</span></div><CodeMirror className="code-editor" value={source} height="100%" extensions={[xml()]} onChange={setSource} basicSetup={{ lineNumbers: true, foldGutter: true, highlightActiveLine: true }} /></div>}
