@@ -1,4 +1,4 @@
-import { AudioLines, History, Mic2, Music2, Settings, SlidersHorizontal, Sparkles, Volume2 } from 'lucide-react';
+import { AudioLines, Github, History, MessageCircle, Mic2, Music2, Settings, SlidersHorizontal, Sparkles, Volume2 } from 'lucide-react';
 import { NavLink, Outlet } from 'react-router-dom';
 import { AudioPlayer } from '../audio/AudioPlayer';
 import { usePlayerStore } from '../../stores/player-store';
@@ -28,6 +28,17 @@ export function AppShell() {
           <Icon size={18} /><span>{label}</span>
         </NavLink>)}
       </nav>
+      <section className="sidebar-community" aria-label="项目社区">
+        <div className="sidebar-community-heading"><Sparkles size={13} /><span>一起交流</span></div>
+        <div className="sidebar-community-item" title="QQ 交流群：581711375">
+          <MessageCircle size={17} />
+          <span><small>QQ 交流群</small><b>581711375</b></span>
+        </div>
+        <a className="sidebar-community-item" href="https://github.com/qqphp/Azure_TTS" target="_blank" rel="noreferrer">
+          <Github size={17} />
+          <span><small>GitHub 地址</small><b>qqphp/Azure_TTS</b></span>
+        </a>
+      </section>
       <NavLink to="/settings" className={({ isActive }) => `nav-item nav-settings ${isActive ? 'active' : ''}`}><Settings size={18} /><span>设置</span></NavLink>
     </aside>
     <main className="page-content"><Outlet /></main><AudioPlayer />
