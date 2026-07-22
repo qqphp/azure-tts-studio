@@ -1,41 +1,510 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { LoaderCircle, Play, RotateCcw, Search, Sparkles } from 'lucide-react';
-import { useEffect, useMemo, useState, type CSSProperties } from 'react';
-import { PageHeader } from '../components/ui/PageHeader';
-import { api } from '../services/api';
-import type { Voice } from '../types/api';
-import { usePlayerStore } from '../stores/player-store';
-import { useStudioStore } from '../stores/studio-store';
-import { filterVoices, initialVoiceFilters, localeNames, localizedLabel, personalityLabels, roleLabels, scenarioLabels, statusLabels, typeLabels, voiceFilterOptions, type VoiceFilterState } from '../voice-filters';
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { LoaderCircle, Play, RotateCcw, Search, Sparkles } from "lucide-react";
+import { useEffect, useMemo, useState, type CSSProperties } from "react";
+import { PageHeader } from "../components/ui/PageHeader";
+import { api } from "../services/api";
+import type { Voice } from "../types/api";
+import { usePlayerStore } from "../stores/player-store";
+import { useStudioStore } from "../stores/studio-store";
+import {
+  filterVoices,
+  initialVoiceFilters,
+  localeNames,
+  localizedLabel,
+  personalityLabels,
+  roleLabels,
+  scenarioLabels,
+  statusLabels,
+  styleLabels,
+  typeLabels,
+  voiceFilterOptions,
+  type VoiceFilterState,
+} from "../voice-filters";
 
-const percent = (value: number) => value ? `${value > 0 ? '+' : ''}${value}%` : undefined;
-const rangeProgress = (value: number, min: number, max: number) => ({
-  '--range-progress': `${((value - min) / (max - min)) * 100}%`,
-} as CSSProperties);
+const percent = (value: number) =>
+  value ? `${value > 0 ? "+" : ""}${value}%` : undefined;
+const rangeProgress = (value: number, min: number, max: number) =>
+  ({
+    "--range-progress": `${((value - min) / (max - min)) * 100}%`,
+  }) as CSSProperties;
 
 export function StudioPage() {
   const client = useQueryClient();
-  const { data: voices = [], isLoading, error } = useQuery({ queryKey: ['voices'], queryFn: api.voices });
-  const { data: previews = [] } = useQuery({ queryKey: ['voice-previews'], queryFn: api.voicePreviews });
-  const { data: settings } = useQuery({ queryKey: ['settings'], queryFn: api.settings });
-  const { data: llmStatus } = useQuery({ queryKey: ['llm-status'], queryFn: api.llmStatus });
+  const {
+    data: voices = [],
+    isLoading,
+    error,
+  } = useQuery({ queryKey: ["voices"], queryFn: api.voices });
+  const { data: previews = [] } = useQuery({
+    queryKey: ["voice-previews"],
+    queryFn: api.voicePreviews,
+  });
+  const { data: settings } = useQuery({
+    queryKey: ["settings"],
+    queryFn: api.settings,
+  });
+  const { data: llmStatus } = useQuery({
+    queryKey: ["llm-status"],
+    queryFn: api.llmStatus,
+  });
   const { text, setText, selectedVoice, setVoice } = useStudioStore();
   const setTrack = usePlayerStore((state) => state.setTrack);
   const [filters, setFilters] = useState<VoiceFilterState>(initialVoiceFilters);
-  const [rate, setRate] = useState(0); const [pitch, setPitch] = useState(0); const [volume, setVolume] = useState(0); const [style, setStyle] = useState(''); const [role, setRole] = useState(''); const [message, setMessage] = useState('');
+  const [rate, setRate] = useState(0);
+  const [pitch, setPitch] = useState(0);
+  const [volume, setVolume] = useState(0);
+  const [style, setStyle] = useState("");
+  const [role, setRole] = useState("");
+  const [message, setMessage] = useState("");
 
-  useEffect(() => { if (!selectedVoice && voices.length) setVoice(voices.find((voice) => voice.ShortName === settings?.defaultVoice) ?? voices[0]); }, [voices, settings?.defaultVoice, selectedVoice, setVoice]);
-  useEffect(() => { setStyle(''); setRole(''); }, [selectedVoice?.ShortName]);
-  const previewMap = useMemo(() => new Map(previews.map((preview) => [preview.shortName, preview])), [previews]);
+  useEffect(() => {
+    if (!selectedVoice && voices.length)
+      setVoice(
+        voices.find((voice) => voice.ShortName === settings?.defaultVoice) ??
+          voices[0],
+      );
+  }, [voices, settings?.defaultVoice, selectedVoice, setVoice]);
+  useEffect(() => {
+    setStyle("");
+    setRole("");
+  }, [selectedVoice?.ShortName]);
+  const previewMap = useMemo(
+    () => new Map(previews.map((preview) => [preview.shortName, preview])),
+    [previews],
+  );
   const options = useMemo(() => voiceFilterOptions(voices), [voices]);
-  const filteredVoices = useMemo(() => filterVoices(voices, filters), [voices, filters]);
-  const updateFilter = <K extends keyof VoiceFilterState>(key: K, value: VoiceFilterState[K]) => setFilters((current) => ({ ...current, [key]: value }));
-  const synthesize = useMutation({ mutationFn: api.speak, onSuccess: (result) => { setTrack(`/api/history/${result.id}`, result.meta.voice || selectedVoice?.LocalName || '新生成的配音'); client.invalidateQueries({ queryKey: ['history'] }); setMessage('配音已生成，正在播放。'); }, onError: (cause) => setMessage(cause instanceof Error ? cause.message : '生成失败') });
-  const review = useMutation({ mutationFn: api.reviewText, onSuccess: (result) => { if (!result.ok || !result.result) { setMessage(result.error || 'AI 检测未返回有效结果'); return; } if (result.result.tts_text) setText(result.result.tts_text); const score = result.result.score === null || result.result.score === undefined ? '' : `评分 ${result.result.score} · `; setMessage(`${score}${result.result.summary || '已完成文本优化'}${result.result.tts_text ? '已替换编辑内容。' : ''}`); }, onError: (cause) => setMessage(cause instanceof Error ? cause.message : 'AI 检测失败') });
-  const previewVoice = useMutation({ mutationFn: async (voice: Voice) => ({ voice, result: await api.ensureVoicePreview(voice) }), onSuccess: ({ voice, result }) => { client.invalidateQueries({ queryKey: ['voice-previews'] }); setTrack(result.url, `${voice.LocalName || voice.DisplayName || voice.ShortName} · 离线试听`); setMessage(`正在试听“${voice.LocalName || voice.DisplayName || voice.ShortName}”。`); }, onError: (cause) => setMessage(cause instanceof Error ? cause.message : '试听音频加载失败') });
-  const playVoicePreview = (voice: Voice) => { const cached = previewMap.get(voice.ShortName); if (cached) { setTrack(cached.url, `${voice.LocalName || voice.DisplayName || voice.ShortName} · 离线试听`); setMessage(`正在试听“${voice.LocalName || voice.DisplayName || voice.ShortName}”。`); } else previewVoice.mutate(voice); };
-  const submit = () => synthesize.mutate({ text: text.trim(), voice: selectedVoice?.ShortName, rate: percent(rate), pitch: percent(pitch), volume: percent(volume), style: style || undefined, role: role || undefined });
-  const reset = () => { setRate(0); setPitch(0); setVolume(0); setStyle(''); setRole(''); };
+  const filteredVoices = useMemo(
+    () => filterVoices(voices, filters),
+    [voices, filters],
+  );
+  const updateFilter = <K extends keyof VoiceFilterState>(
+    key: K,
+    value: VoiceFilterState[K],
+  ) => setFilters((current) => ({ ...current, [key]: value }));
+  const synthesize = useMutation({
+    mutationFn: api.speak,
+    onSuccess: (result) => {
+      setTrack(
+        `/api/history/${result.id}`,
+        result.meta.voice || selectedVoice?.LocalName || "新生成的配音",
+      );
+      client.invalidateQueries({ queryKey: ["history"] });
+      setMessage("配音已生成，正在播放。");
+    },
+    onError: (cause) =>
+      setMessage(cause instanceof Error ? cause.message : "生成失败"),
+  });
+  const review = useMutation({
+    mutationFn: api.reviewText,
+    onSuccess: (result) => {
+      if (!result.ok || !result.result) {
+        setMessage(result.error || "AI 检测未返回有效结果");
+        return;
+      }
+      if (result.result.tts_text) setText(result.result.tts_text);
+      const score =
+        result.result.score === null || result.result.score === undefined
+          ? ""
+          : `评分 ${result.result.score} · `;
+      setMessage(
+        `${score}${result.result.summary || "已完成文本优化"}${result.result.tts_text ? "已替换编辑内容。" : ""}`,
+      );
+    },
+    onError: (cause) =>
+      setMessage(cause instanceof Error ? cause.message : "AI 检测失败"),
+  });
+  const previewVoice = useMutation({
+    mutationFn: async (voice: Voice) => ({
+      voice,
+      result: await api.ensureVoicePreview(voice),
+    }),
+    onSuccess: ({ voice, result }) => {
+      client.invalidateQueries({ queryKey: ["voice-previews"] });
+      setTrack(
+        result.url,
+        `${voice.LocalName || voice.DisplayName || voice.ShortName} · 离线试听`,
+      );
+      setMessage(
+        `正在试听“${voice.LocalName || voice.DisplayName || voice.ShortName}”。`,
+      );
+    },
+    onError: (cause) =>
+      setMessage(cause instanceof Error ? cause.message : "试听音频加载失败"),
+  });
+  const playVoicePreview = (voice: Voice) => {
+    const cached = previewMap.get(voice.ShortName);
+    if (cached) {
+      setTrack(
+        cached.url,
+        `${voice.LocalName || voice.DisplayName || voice.ShortName} · 离线试听`,
+      );
+      setMessage(
+        `正在试听“${voice.LocalName || voice.DisplayName || voice.ShortName}”。`,
+      );
+    } else previewVoice.mutate(voice);
+  };
+  const submit = () =>
+    synthesize.mutate({
+      text: text.trim(),
+      voice: selectedVoice?.ShortName,
+      rate: percent(rate),
+      pitch: percent(pitch),
+      volume: percent(volume),
+      style: style || undefined,
+      role: role || undefined,
+    });
+  const reset = () => {
+    setRate(0);
+    setPitch(0);
+    setVolume(0);
+    setStyle("");
+    setRole("");
+  };
 
-  return <><PageHeader eyebrow="STUDIO" title="开始一段好听的配音" description="选择音色，调整表达方式，然后即时生成音频。" /><div className="studio-layout"><section className="card voice-picker"><div className="card-title"><span>选择音色</span><span className="muted">{filteredVoices.length} / {voices.length || '—'} 个可用</span></div><div className="voice-filter-panel"><div className="voice-search"><Search size={16} /><input value={filters.keyword} onChange={(event) => updateFilter('keyword', event.target.value)} placeholder="搜索音色 / 名称 / 地区…" /></div><div className="voice-filter-grid"><select value={filters.locale} onChange={(event) => updateFilter('locale', event.target.value)}><option value="">全部语言</option>{options.locales.map((item) => <option key={item} value={item}>{localeNames[item] || item}</option>)}</select><select value={filters.gender} onChange={(event) => updateFilter('gender', event.target.value)}><option value="">全部性别</option><option value="Female">女声</option><option value="Male">男声</option></select><select value={filters.type} onChange={(event) => updateFilter('type', event.target.value)}><option value="">全部类型</option>{options.types.map((item) => <option key={item} value={item}>{item} · {typeLabels[item] || item}</option>)}</select><select value={filters.role} onChange={(event) => updateFilter('role', event.target.value)}><option value="">全部年龄感 / 角色</option>{options.roles.map((item) => <option key={item} value={item}>{roleLabels[item] || item}</option>)}</select><select value={filters.status} onChange={(event) => updateFilter('status', event.target.value)}><option value="">全部状态</option>{options.statuses.map((item) => <option key={item} value={item}>{item} · {statusLabels[item] || item}</option>)}</select><select value={filters.scenario} onChange={(event) => updateFilter('scenario', event.target.value)}><option value="">全部使用场景</option>{options.scenarios.map((item) => <option key={item} value={item}>{item} · {localizedLabel(item, scenarioLabels)}</option>)}</select><select value={filters.personality} onChange={(event) => updateFilter('personality', event.target.value)}><option value="">全部音色人格</option>{options.personalities.map((item) => <option key={item} value={item}>{item} · {localizedLabel(item, personalityLabels)}</option>)}</select><select value={filters.model} onChange={(event) => updateFilter('model', event.target.value)}><option value="">全部模型系列</option>{options.models.map((item) => <option key={item} value={item}>{item}</option>)}</select><select value={filters.source} onChange={(event) => updateFilter('source', event.target.value)}><option value="">全部模型来源</option>{options.sources.map((item) => <option key={item} value={item}>{item}</option>)}</select></div><div className="voice-filter-actions"><label><input type="checkbox" checked={filters.styleOnly} onChange={(event) => updateFilter('styleOnly', event.target.checked)} />仅支持风格</label><button className="text-button" onClick={() => setFilters(initialVoiceFilters)}><RotateCcw size={14} />重置筛选</button></div></div><div className="voice-list">{isLoading ? <p className="state-message">加载中…</p> : error ? <p className="state-message error">请先在设置中连接 Azure Speech。</p> : filteredVoices.length ? filteredVoices.map((voice) => { const generating = previewVoice.isPending && previewVoice.variables?.ShortName === voice.ShortName; return <div key={voice.ShortName} className={`voice-option ${selectedVoice?.ShortName === voice.ShortName ? 'selected' : ''}`}><button className="voice-option-main" onClick={() => setVoice(voice)}><span className="voice-avatar">{voice.LocalName?.slice(0, 1) ?? '声'}</span><span><b>{voice.LocalName || voice.DisplayName || voice.ShortName}</b><small>{voice.LocaleName || voice.Locale} · {voice.Gender === 'Female' ? '女声' : '男声'}</small><small className="voice-capabilities">{voice.StyleList?.length ?? 0} 个风格 · {voice.RolePlayList?.length ?? 0} 个角色</small></span></button><button className="voice-option-preview" title={`试听${voice.LocalName || voice.DisplayName || voice.ShortName}`} onClick={() => playVoicePreview(voice)} disabled={generating}>{generating ? <LoaderCircle className="spin" size={14} /> : <Play size={14} fill="currentColor" />}<span>试听</span></button></div>; }) : <p className="state-message">没有符合条件的音色。</p>}</div></section><section className="card studio-main-card"><div className="card-title"><span>配音内容</span><span className="muted">{text.length} 字</span></div><textarea value={text} onChange={(event) => setText(event.target.value)} placeholder="输入希望朗读的内容…" /><div className="expression-settings"><div className="card-title"><span>表达方式</span><button className="text-button" onClick={reset}>重置</button></div><div className="setting-row"><span>语速</span><input aria-label="语速" type="range" min="-50" max="200" value={rate} style={rangeProgress(rate, -50, 200)} onChange={(event) => setRate(Number(event.target.value))} /><output>{rate ? `${rate > 0 ? '+' : ''}${rate}%` : '默认'}</output></div><div className="setting-row"><span>音调</span><input aria-label="音调" type="range" min="-50" max="50" value={pitch} style={rangeProgress(pitch, -50, 50)} onChange={(event) => setPitch(Number(event.target.value))} /><output>{pitch ? `${pitch > 0 ? '+' : ''}${pitch}%` : '默认'}</output></div><div className="setting-row"><span>音量</span><input aria-label="音量" type="range" min="-50" max="50" value={volume} style={rangeProgress(volume, -50, 50)} onChange={(event) => setVolume(Number(event.target.value))} /><output>{volume ? `${volume > 0 ? '+' : ''}${volume}%` : '默认'}</output></div><div className="expression-selects"><label className="style-select">说话风格<select value={style} onChange={(event) => setStyle(event.target.value)}><option value="">默认 · default</option>{selectedVoice?.StyleList?.map((item) => <option key={item} value={item}>{item} · {item}</option>)}</select></label><label className="style-select">角色<select value={role} onChange={(event) => setRole(event.target.value)}><option value="">默认 · default</option>{selectedVoice?.RolePlayList?.map((item) => <option key={item} value={item}>{roleLabels[item] || item} · {item}</option>)}</select></label></div></div><div className="compose-footer"><button className="text-button" onClick={() => review.mutate(text)} disabled={!text.trim() || !llmStatus?.configured || review.isPending} title={llmStatus?.configured ? `使用 ${llmStatus.model || '默认模型'} 优化文本` : '请先在设置中配置 LLM'}>{review.isPending ? <LoaderCircle className="spin" size={16} /> : <Sparkles size={16} />} AI 文本优化</button><button className="primary-button" onClick={submit} disabled={!text.trim() || !selectedVoice || synthesize.isPending}>{synthesize.isPending ? <LoaderCircle className="spin" size={17} /> : <Play size={17} fill="currentColor" />}{synthesize.isPending ? '正在生成…' : '生成配音'}</button></div>{message && <p className={`inline-message ${synthesize.isError || review.isError || previewVoice.isError ? 'error' : ''}`}>{message}</p>}</section></div></>;
+  return (
+    <>
+      <PageHeader
+        eyebrow="STUDIO"
+        title="开始一段好听的配音"
+        description="选择音色，调整表达方式，然后即时生成音频。"
+      />
+      <div className="studio-layout">
+        <section className="card voice-picker">
+          <div className="card-title">
+            <span>选择音色</span>
+            <span className="muted">
+              {filteredVoices.length} / {voices.length || "—"} 个可用
+            </span>
+          </div>
+          <div className="voice-filter-panel">
+            <div className="voice-search">
+              <Search size={16} />
+              <input
+                value={filters.keyword}
+                onChange={(event) =>
+                  updateFilter("keyword", event.target.value)
+                }
+                placeholder="搜索音色 / 名称 / 地区…"
+              />
+            </div>
+            <div className="voice-filter-grid">
+              <select
+                value={filters.locale}
+                onChange={(event) => updateFilter("locale", event.target.value)}
+              >
+                <option value="">全部语言</option>
+                {options.locales.map((item) => (
+                  <option key={item} value={item}>
+                    {localeNames[item] || item}
+                  </option>
+                ))}
+              </select>
+              <select
+                value={filters.gender}
+                onChange={(event) => updateFilter("gender", event.target.value)}
+              >
+                <option value="">全部性别</option>
+                <option value="Female">女声</option>
+                <option value="Male">男声</option>
+              </select>
+              <select
+                value={filters.type}
+                onChange={(event) => updateFilter("type", event.target.value)}
+              >
+                <option value="">全部类型</option>
+                {options.types.map((item) => (
+                  <option key={item} value={item}>
+                    {item} · {typeLabels[item] || item}
+                  </option>
+                ))}
+              </select>
+              <select
+                value={filters.role}
+                onChange={(event) => updateFilter("role", event.target.value)}
+              >
+                <option value="">全部年龄感 / 角色</option>
+                {options.roles.map((item) => (
+                  <option key={item} value={item}>
+                    {roleLabels[item] || item}
+                  </option>
+                ))}
+              </select>
+              <select
+                value={filters.status}
+                onChange={(event) => updateFilter("status", event.target.value)}
+              >
+                <option value="">全部状态</option>
+                {options.statuses.map((item) => (
+                  <option key={item} value={item}>
+                    {item} · {statusLabels[item] || item}
+                  </option>
+                ))}
+              </select>
+              <select
+                value={filters.scenario}
+                onChange={(event) =>
+                  updateFilter("scenario", event.target.value)
+                }
+              >
+                <option value="">全部使用场景</option>
+                {options.scenarios.map((item) => (
+                  <option key={item} value={item}>
+                    {item} · {localizedLabel(item, scenarioLabels)}
+                  </option>
+                ))}
+              </select>
+              <select
+                value={filters.personality}
+                onChange={(event) =>
+                  updateFilter("personality", event.target.value)
+                }
+              >
+                <option value="">全部音色人格</option>
+                {options.personalities.map((item) => (
+                  <option key={item} value={item}>
+                    {item} · {localizedLabel(item, personalityLabels)}
+                  </option>
+                ))}
+              </select>
+              <select
+                value={filters.model}
+                onChange={(event) => updateFilter("model", event.target.value)}
+              >
+                <option value="">全部模型系列</option>
+                {options.models.map((item) => (
+                  <option key={item} value={item}>
+                    {item}
+                  </option>
+                ))}
+              </select>
+              <select
+                value={filters.source}
+                onChange={(event) => updateFilter("source", event.target.value)}
+              >
+                <option value="">全部模型来源</option>
+                {options.sources.map((item) => (
+                  <option key={item} value={item}>
+                    {item}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="voice-filter-actions">
+              <label>
+                <input
+                  type="checkbox"
+                  checked={filters.styleOnly}
+                  onChange={(event) =>
+                    updateFilter("styleOnly", event.target.checked)
+                  }
+                />
+                仅支持风格
+              </label>
+              <button
+                className="text-button"
+                onClick={() => setFilters(initialVoiceFilters)}
+              >
+                <RotateCcw size={14} />
+                重置筛选
+              </button>
+            </div>
+          </div>
+          <div className="voice-list">
+            {isLoading ? (
+              <p className="state-message">加载中…</p>
+            ) : error ? (
+              <p className="state-message error">
+                请先在设置中连接 Azure Speech。
+              </p>
+            ) : filteredVoices.length ? (
+              filteredVoices.map((voice) => {
+                const generating =
+                  previewVoice.isPending &&
+                  previewVoice.variables?.ShortName === voice.ShortName;
+                return (
+                  <div
+                    key={voice.ShortName}
+                    className={`voice-option ${selectedVoice?.ShortName === voice.ShortName ? "selected" : ""}`}
+                  >
+                    <button
+                      className="voice-option-main"
+                      onClick={() => setVoice(voice)}
+                    >
+                      <span className="voice-avatar">
+                        {voice.LocalName?.slice(0, 1) ?? "声"}
+                      </span>
+                      <span>
+                        <b>
+                          {voice.LocalName ||
+                            voice.DisplayName ||
+                            voice.ShortName}
+                        </b>
+                        <small>
+                          {voice.LocaleName || voice.Locale} ·{" "}
+                          {voice.Gender === "Female" ? "女声" : "男声"}
+                        </small>
+                        <small className="voice-capabilities">
+                          {voice.StyleList?.length ?? 0} 个风格 ·{" "}
+                          {voice.RolePlayList?.length ?? 0} 个角色
+                        </small>
+                      </span>
+                    </button>
+                    <button
+                      className="voice-option-preview"
+                      title={`试听${voice.LocalName || voice.DisplayName || voice.ShortName}`}
+                      onClick={() => playVoicePreview(voice)}
+                      disabled={generating}
+                    >
+                      {generating ? (
+                        <LoaderCircle className="spin" size={14} />
+                      ) : (
+                        <Play size={14} fill="currentColor" />
+                      )}
+                      <span>试听</span>
+                    </button>
+                  </div>
+                );
+              })
+            ) : (
+              <p className="state-message">没有符合条件的音色。</p>
+            )}
+          </div>
+        </section>
+        <section className="card studio-main-card">
+          <div className="card-title">
+            <span>配音内容</span>
+            <span className="muted">{text.length} 字</span>
+          </div>
+          <textarea
+            value={text}
+            onChange={(event) => setText(event.target.value)}
+            placeholder="输入希望朗读的内容…"
+          />
+          <div className="expression-settings">
+            <div className="card-title">
+              <span>表达方式</span>
+              <button className="text-button" onClick={reset}>
+                重置
+              </button>
+            </div>
+            <div className="setting-row">
+              <span>语速</span>
+              <input
+                aria-label="语速"
+                type="range"
+                min="-50"
+                max="200"
+                value={rate}
+                style={rangeProgress(rate, -50, 200)}
+                onChange={(event) => setRate(Number(event.target.value))}
+              />
+              <output>
+                {rate ? `${rate > 0 ? "+" : ""}${rate}%` : "默认"}
+              </output>
+            </div>
+            <div className="setting-row">
+              <span>音调</span>
+              <input
+                aria-label="音调"
+                type="range"
+                min="-50"
+                max="50"
+                value={pitch}
+                style={rangeProgress(pitch, -50, 50)}
+                onChange={(event) => setPitch(Number(event.target.value))}
+              />
+              <output>
+                {pitch ? `${pitch > 0 ? "+" : ""}${pitch}%` : "默认"}
+              </output>
+            </div>
+            <div className="setting-row">
+              <span>音量</span>
+              <input
+                aria-label="音量"
+                type="range"
+                min="-50"
+                max="50"
+                value={volume}
+                style={rangeProgress(volume, -50, 50)}
+                onChange={(event) => setVolume(Number(event.target.value))}
+              />
+              <output>
+                {volume ? `${volume > 0 ? "+" : ""}${volume}%` : "默认"}
+              </output>
+            </div>
+            <div className="expression-selects">
+              <label className="style-select">
+                说话风格
+                <select
+                  value={style}
+                  onChange={(event) => setStyle(event.target.value)}
+                >
+                  <option value="">default · 默认</option>
+                  {selectedVoice?.StyleList?.map((item) => (
+                    <option key={item} value={item}>
+                      {item} · {localizedLabel(item, styleLabels)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="style-select">
+                角色
+                <select
+                  value={role}
+                  onChange={(event) => setRole(event.target.value)}
+                >
+                  <option value="">default · 默认</option>
+                  {selectedVoice?.RolePlayList?.map((item) => (
+                    <option key={item} value={item}>
+                      {item} · {localizedLabel(item, roleLabels)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+          </div>
+          <div className="compose-footer">
+            <button
+              className="text-button"
+              onClick={() => review.mutate(text)}
+              disabled={
+                !text.trim() || !llmStatus?.configured || review.isPending
+              }
+              title={
+                llmStatus?.configured
+                  ? `使用 ${llmStatus.model || "默认模型"} 优化文本`
+                  : "请先在设置中配置 LLM"
+              }
+            >
+              {review.isPending ? (
+                <LoaderCircle className="spin" size={16} />
+              ) : (
+                <Sparkles size={16} />
+              )}{" "}
+              AI 文本优化
+            </button>
+            <button
+              className="primary-button"
+              onClick={submit}
+              disabled={!text.trim() || !selectedVoice || synthesize.isPending}
+            >
+              {synthesize.isPending ? (
+                <LoaderCircle className="spin" size={17} />
+              ) : (
+                <Play size={17} fill="currentColor" />
+              )}
+              {synthesize.isPending ? "正在生成…" : "生成配音"}
+            </button>
+          </div>
+          {message && (
+            <p
+              className={`inline-message ${synthesize.isError || review.isError || previewVoice.isError ? "error" : ""}`}
+            >
+              {message}
+            </p>
+          )}
+        </section>
+      </div>
+    </>
+  );
 }

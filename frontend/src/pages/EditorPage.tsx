@@ -42,6 +42,7 @@ import {
   roleLabels,
   scenarioLabels,
   statusLabels,
+  styleLabels,
   typeLabels,
   voiceFilterOptions,
   type VoiceFilterState,
@@ -1045,8 +1046,8 @@ export function EditorPage() {
                   <span className="segment-number">{String(index + 1).padStart(2, '0')}</span>
                   <label className="segment-role-name"><span>角色名称</span><select value={segment.roleId ? String(segment.roleId) : ''} onChange={(event) => selectSegmentRole(segment.id, event.target.value)} disabled={rolesLoading || !savedRoles.length}><option value="">{rolesLoading ? '正在读取角色…' : savedRoles.length ? '请选择角色' : '暂无可用角色'}</option>{savedRoles.map((savedRole) => <option key={savedRole.id} value={savedRole.id}>{savedRole.name}</option>)}</select></label>
                   <label><span>音色</span><select value={segment.voice} onChange={(event) => updateSegment(segment.id, { voice: event.target.value, style: '', role: '' })}>{voices.length ? voices.map((voice) => <option key={voice.ShortName} value={voice.ShortName}>{voiceName(voice, voice.ShortName)}</option>) : <option value={segment.voice}>{segment.voice}</option>}</select></label>
-                  <label><span>风格</span><select value={segment.style} onChange={(event) => updateSegment(segment.id, { style: event.target.value })}><option value="">默认 · default</option>{selectedVoice?.StyleList?.map((style) => <option key={style} value={style}>{style}</option>)}</select></label>
-                  <label><span>角色</span><select value={segment.role} onChange={(event) => updateSegment(segment.id, { role: event.target.value })}><option value="">默认 · default</option>{selectedVoice?.RolePlayList?.map((role) => <option key={role} value={role}>{role}</option>)}</select></label>
+                  <label><span>风格</span><select value={segment.style} onChange={(event) => updateSegment(segment.id, { style: event.target.value })}><option value="">default · 默认</option>{selectedVoice?.StyleList?.map((style) => <option key={style} value={style}>{style} · {localizedLabel(style, styleLabels)}</option>)}</select></label>
+                  <label><span>角色</span><select value={segment.role} onChange={(event) => updateSegment(segment.id, { role: event.target.value })}><option value="">default · 默认</option>{selectedVoice?.RolePlayList?.map((role) => <option key={role} value={role}>{role} · {localizedLabel(role, roleLabels)}</option>)}</select></label>
                   <label className="segment-rate"><span>语速</span><select value={segment.rate} onChange={(event) => updateSegment(segment.id, { rate: event.target.value })}><option value="x-slow">x-slow · 0.5x</option><option value="slow">slow · 0.64x</option><option value="medium">medium · 1.0x</option><option value="fast">fast · 1.55x</option><option value="x-fast">x-fast · 2.0x</option></select></label>
                   <div className="segment-actions">
                     <button className="icon-button" title="试听当前片段" onClick={() => previewSegment(segment)} disabled={!segment.text.trim() || synthesize.isPending}><Play size={15} fill="currentColor" /></button>
