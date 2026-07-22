@@ -13,6 +13,7 @@ if str(BACKEND_DIR) not in sys.path:
     sys.path.insert(0, str(BACKEND_DIR))
 
 from app.factory import create_app  # noqa: E402
+from app import factory  # noqa: E402
 from app.core import database  # noqa: E402
 from app.services.speech import build_ssml, mime_for_format  # noqa: E402
 from app.services.ssml import validate_document  # noqa: E402
@@ -27,6 +28,12 @@ class ApiRegressionTests(unittest.TestCase):
         response = self.client.get("/api/health")
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json(), {"status": "ok"})
+
+    def test_missing_frontend_build_returns_actionable_error(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir, patch.object(factory, "FRONTEND_DIST_DIR", Path(temp_dir) / "dist"):
+            response = TestClient(create_app()).get("/")
+        self.assertEqual(response.status_code, 503)
+        self.assertIn("npm run build", response.json()["msg"])
 
     def test_settings_never_returns_plaintext_api_key(self) -> None:
         response = self.client.get("/api/settings")

@@ -1,8 +1,8 @@
 # Azure 文本转语音 (Azure TTS Studio)
 
-一个本地运行的 Web 应用,提供调用微软 Azure Cognitive Services 文本转语音 (Text-to-Speech) 的友好界面。后端 FastAPI 做代理,前端纯静态页面,密钥只存在本机,不会暴露给浏览器。
+一个本地运行的 Web 应用,提供调用微软 Azure Cognitive Services 文本转语音 (Text-to-Speech) 的友好界面。后端使用 FastAPI，前端使用 React、TypeScript 和 Vite，密钥只存在本机,不会暴露给浏览器。
 
-![这是图片](./static/images/readme/demo1.gif)
+![这是图片](./docs/assets/readme/demo1.gif)
 
 ## 功能
 
@@ -33,11 +33,10 @@ Azure_TTS/
 │   │   └── services/       Speech、SSML、历史业务服务
 │   ├── tests/              不依赖 Azure 密钥的回归测试
 │   └── requirements.txt
-├── static/                 前端静态资源
-│   ├── index.html
-│   ├── styles.css
-│   ├── app.js              页面功能编排入口
-│   └── modules/            路由、主题、共享状态、播放器、历史模块
+├── frontend/               React + TypeScript + Vite 前端
+│   ├── src/                页面、组件、状态与 API 客户端
+│   └── public/             favicon 等直接复制的公共资源
+├── docs/assets/readme/     README 使用的演示图片
 ├── config.json             保存的配置 (运行后自动生成,含 apiKey,请勿提交 git)
 └── history/                历史音频 + 元数据 (.bin / .json)
 ```
@@ -45,12 +44,18 @@ Azure_TTS/
 ## 安装与运行
 
 ```bash
-cd backend
+cd frontend
+npm ci
+npm run build
+
+cd ../backend
 python -m venv .venv
 # Windows: .venv\Scripts\activate   | macOS/Linux: source .venv/bin/activate
 pip install -r requirements.txt
 python main.py
 ```
+
+也可以直接运行项目根目录的 `start.bat`（Windows）或 `start.sh`（macOS/Linux）；首次启动且缺少前端构建时，脚本会自动安装依赖并完成构建。
 
 打开浏览器访问 <http://127.0.0.1:8000>。
 
@@ -60,8 +65,9 @@ python main.py
 
 ```bash
 python -m unittest discover -s backend/tests -v
-node --check static/app.js
-node --check static/modules/*.js
+cd frontend
+npm run check
+npm run build
 ```
 
 测试不会请求 Azure Speech，也不会使用或写入现有的音频历史；覆盖健康检查、配置脱敏、SSML 安全校验与音频格式映射。
@@ -135,24 +141,24 @@ REST 路径说明:本后端固定走经典 Azure AI Speech REST 形式:
 在 Azure 门户中创建一个 Foundry 资源。官网地址：[https://portal.azure.com](https://portal.azure.com)
 
 1. 填写创建 Foundry 资源，填写所需的基础信息
-![这是图片](./static/images/readme/foundry0.png)
-![这是图片](./static/images/readme/foundry1.png)
+![这是图片](./docs/assets/readme/foundry0.png)
+![这是图片](./docs/assets/readme/foundry1.png)
 
 2. 探索模型，查看是否存在模型
-![这是图片](./static/images/readme/foundry2.png)
-![这是图片](./static/images/readme/foundry3.png)
+![这是图片](./docs/assets/readme/foundry2.png)
+![这是图片](./docs/assets/readme/foundry3.png)
 
 3. 查看请求地址和密钥
-![这是图片](./static/images/readme/foundry4.png)
-![这是图片](./static/images/readme/foundry5.png)
+![这是图片](./docs/assets/readme/foundry4.png)
+![这是图片](./docs/assets/readme/foundry5.png)
 
 ## Azure TTS配置的第二种方案，创建语言服务(免费，限50万字)
 在 Azure 门户中创建一个语音服务资源。官网地址：[https://portal.azure.com](https://portal.azure.com)
 
 1. 查询语音服务资源，然后创建语音服务资源
-![这是图片](./static/images/readme/voice1.png)
-![这是图片](./static/images/readme/voice2.png)
+![这是图片](./docs/assets/readme/voice1.png)
+![这是图片](./docs/assets/readme/voice2.png)
 
 2. 查看创建的语音服务资源，然后获取请求地址和密钥
-![这是图片](./static/images/readme/voice3.png)
-![这是图片](./static/images/readme/voice4.png)
+![这是图片](./docs/assets/readme/voice3.png)
+![这是图片](./docs/assets/readme/voice4.png)

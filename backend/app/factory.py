@@ -1,13 +1,12 @@
 from fastapi import FastAPI
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import JSONResponse
 from pathlib import Path
-import os
 
 from fastapi.staticfiles import StaticFiles
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.api import router
-from app.core.config import FRONTEND_DIST_DIR, HISTORY_DIR, STATIC_DIR, VOICE_PREVIEW_DIR, migrate_legacy_secrets
+from app.core.config import FRONTEND_DIST_DIR, HISTORY_DIR, VOICE_PREVIEW_DIR, migrate_legacy_secrets
 
 
 class SpaStaticFiles(StaticFiles):
@@ -31,18 +30,14 @@ def create_app() -> FastAPI:
     application = FastAPI(title="Azure TTS Studio", version="2.0.0")
     application.include_router(router)
 
-    @application.get("/favicon.ico", include_in_schema=False)
-    def favicon():
-        return FileResponse(STATIC_DIR / "favicon.ico", media_type="image/x-icon")
-
-    web_dir = FRONTEND_DIST_DIR if FRONTEND_DIST_DIR.exists() else STATIC_DIR
-    if web_dir.exists():
-        # The legacy UI is an opt-in emergency rollback, not a normal entry.
-        if web_dir == FRONTEND_DIST_DIR and STATIC_DIR.exists() and os.getenv("TTS_ENABLE_LEGACY_UI") == "1":
-            application.mount("/legacy", StaticFiles(directory=str(STATIC_DIR), html=True), name="legacy-static")
-        application.mount("/", SpaStaticFiles(directory=str(web_dir), html=True), name="static")
+    frontend_entry = FRONTEND_DIST_DIR / "index.html"
+    if frontend_entry.is_file():
+        application.mount("/", SpaStaticFiles(directory=str(FRONTEND_DIST_DIR), html=True), name="frontend")
     else:
         @application.get("/")
         def root():
-            return JSONResponse({"msg": "static dir missing, put index.html under ./static"})
+            return JSONResponse(
+                {"msg": "frontend build missing; run `npm install && npm run build` under ./frontend"},
+                status_code=503,
+            )
     return application

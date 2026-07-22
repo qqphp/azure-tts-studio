@@ -2,7 +2,7 @@
 
 新版前端采用 React、TypeScript、Vite、React Router、TanStack Query 和 Zustand。
 
-它与根目录的 `static/` 旧版页面并行存在，便于逐页迁移并在迁移期间保留全部已有能力。
+它是项目唯一的 Web 前端；生产构建由 FastAPI 从 `frontend/dist/` 托管。
 
 ## 本地开发
 
@@ -33,9 +33,7 @@ cd ../backend
 python main.py
 ```
 
-构建产物存在时，FastAPI 会在 <http://127.0.0.1:8000> 托管新版前端，并支持页面刷新后的路由回退。未构建新版时，根路径仍使用旧版页面。
-
-旧版只保留为应急回退，不会默认暴露。确需访问时，在启动服务前设置环境变量 `TTS_ENABLE_LEGACY_UI=1`，然后访问 <http://127.0.0.1:8000/legacy/>。
+构建完成后，FastAPI 会在 <http://127.0.0.1:8000> 托管前端，并支持页面刷新后的路由回退。若构建产物不存在，根路径会返回包含构建命令的 503 提示；项目根目录的 `start.bat` 和 `start.sh` 会在首次启动时自动完成构建。
 
 ## 密钥存储
 

@@ -1,7 +1,7 @@
-"""Compatibility API assembly point.
+"""HTTP API assembly point.
 
-All public paths remain under /api while domain endpoints now live in separate
-modules. Existing static clients therefore keep working during the migration.
+All public paths remain under /api while domain endpoints live in separate
+modules.
 """
 from fastapi import APIRouter, HTTPException
 
