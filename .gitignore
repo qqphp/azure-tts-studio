@@ -1,6 +1,6 @@
 # 敏感配置
 config.json
-history/
+/history/
 
 # Python
 backend/.venv/
