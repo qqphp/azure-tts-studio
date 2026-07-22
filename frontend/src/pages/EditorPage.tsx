@@ -4,12 +4,12 @@ import CodeMirror from '@uiw/react-codemirror';
 import {
   AudioLines,
   AudioWaveform,
+  Calculator,
   CheckCircle2,
   ChevronDown,
   Code2,
   Copy,
   FileCode2,
-  Gauge,
   Heart,
   LoaderCircle,
   Languages,
@@ -20,10 +20,10 @@ import {
   Pause,
   RotateCcw,
   Search,
+  Tags,
   Timer,
   Trash2,
   Users,
-  VolumeX,
   X,
 } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -61,20 +61,72 @@ type BackgroundAudioSelection = {
 
 type BreakStrength = 'x-weak' | 'weak' | 'medium' | 'strong' | 'x-strong';
 
+type SayAsOption = {
+  value: string;
+  label: string;
+  hint: string;
+  formats?: { value: string; label: string }[];
+  defaultFormat?: string;
+};
+
+type StyleMarkerOption = { value: string; label: string };
+
+const speechStyleMarkers: StyleMarkerOption[] = [
+  ['amazed', '惊讶'], ['amused', '愉悦'], ['angry', '生气'], ['annoyed', '恼怒'], ['anxious', '焦虑'],
+  ['appreciative', '赞赏'], ['calm', '平静'], ['cautious', '谨慎'], ['concerned', '担忧'], ['confident', '自信'],
+  ['confused', '困惑'], ['curious', '好奇'], ['defeated', '挫败'], ['defensive', '防御'], ['defiant', '挑衅'],
+  ['determined', '坚定'], ['disappointed', '失望'], ['disgusted', '厌恶'], ['doubtful', '怀疑'], ['ecstatic', '狂喜'],
+  ['encouraging', '鼓励'], ['excited', '兴奋'], ['fast', '快速'], ['fearful', '害怕'], ['frustrated', '沮丧'],
+  ['happy', '开心'], ['hesitant', '犹豫'], ['hurt', '受伤'], ['impatient', '不耐烦'], ['impressed', '赞叹'],
+  ['intrigued', '感兴趣'], ['joking', '玩笑'], ['laughing', '大笑'], ['optimistic', '乐观'], ['painful', '痛苦'],
+  ['panicked', '惊慌'], ['panting', '喘息'], ['pleading', '恳求'], ['proud', '自豪'], ['quiet', '轻声'],
+  ['reassuring', '安慰'], ['reflective', '沉思'], ['relieved', '释然'], ['remorseful', '懊悔'], ['resigned', '无奈'],
+  ['sad', '悲伤'], ['sarcastic', '讽刺'], ['secretive', '神秘'], ['serious', '严肃'], ['shocked', '震惊'],
+  ['shouting', '喊叫'], ['shy', '害羞'], ['skeptical', '质疑'], ['slow', '慢速'], ['struggling', '吃力'],
+  ['surprised', '惊喜'], ['suspicious', '猜疑'], ['sympathetic', '同情'], ['terrified', '恐惧'], ['upset', '难过'],
+  ['urgent', '紧急'], ['whispering', '耳语'],
+].map(([value, label]) => ({ value, label }));
+
+const paralinguisticMarkers: StyleMarkerOption[] = [
+  { value: 'laughter', label: '笑声' },
+  { value: 'coughing', label: '咳嗽' },
+  { value: 'throat_clearing', label: '清嗓' },
+  { value: 'breathing', label: '呼吸' },
+  { value: 'sighing', label: '叹气' },
+  { value: 'yawning', label: '打哈欠' },
+];
+
+const sayAsOptions: SayAsOption[] = [
+  { value: 'characters', label: '逐字符', hint: '逐个朗读字母或字符', formats: [{ value: 'casesensitive', label: '区分大小写' }] },
+  { value: 'spell-out', label: '拼写', hint: '逐个拼读文字', formats: [{ value: 'casesensitive', label: '区分大小写' }] },
+  { value: 'alphanumeric', label: '字母与数字', hint: '按字母数字序列朗读，连字符表示停顿', formats: [{ value: 'spell', label: '拼写并保留停顿' }], defaultFormat: 'spell' },
+  { value: 'cardinal', label: '基数', hint: '将数字读作数量' },
+  { value: 'number', label: '数字', hint: '将数字读作数量，与基数相同' },
+  { value: 'ordinal', label: '序数', hint: '将内容读作第几项' },
+  { value: 'number_digit', label: '逐位数字', hint: '逐个朗读数字位' },
+  { value: 'fraction', label: '分数', hint: '将内容读作分数' },
+  { value: 'date', label: '日期', hint: '按指定年月日顺序朗读', formats: ['dmy', 'mdy', 'ymd', 'ym', 'my', 'md', 'dm', 'd', 'm', 'y'].map((value) => ({ value, label: value })) },
+  { value: 'time', label: '时间', hint: '按 12 或 24 小时制朗读', formats: [{ value: 'hms12', label: 'hms12 · 12 小时制' }, { value: 'hms24', label: 'hms24 · 24 小时制' }] },
+  { value: 'duration', label: '持续时间', hint: '将内容读作时、分、秒', formats: ['hms', 'hm', 'ms'].map((value) => ({ value, label: value })) },
+  { value: 'telephone', label: '电话号码', hint: '按电话号码方式朗读' },
+  { value: 'currency', label: '货币', hint: '将金额与币种读作货币' },
+  { value: 'unit', label: '计量单位', hint: '将数字与单位完整朗读' },
+  { value: 'address', label: '地址', hint: '按地址方式朗读' },
+  { value: 'name', label: '人名', hint: '按姓名语境选择读音' },
+];
+
 const ssmlToolGroups: { label: string; tools: SsmlTool[] }[] = [
-  { label: '情感', tools: [] },
   { label: '副语言', tools: [] },
-  { label: '角色', tools: [] },
-  { label: '语速', tools: [] },
+  { label: '数学', tools: [] },
   { label: '停顿', tools: [] },
   { label: '时长', tools: [] },
   { label: '韵律', tools: [] },
-  { label: '静音', tools: [] },
+  { label: '元素', tools: [] },
   { label: '音效', tools: [] },
   { label: '背景音', tools: [] },
 ];
 
-const ssmlToolIcons = [Heart, Languages, Users, Gauge, Pause, Timer, AudioWaveform, VolumeX, AudioLines, Music2];
+const ssmlToolIcons = [Languages, Calculator, Pause, Timer, AudioWaveform, Tags, AudioLines, Music2];
 
 const starterSegments: EditorSegment[] = [
   {
@@ -147,7 +199,7 @@ const buildSsml = (segments: EditorSegment[], backgroundAudio?: BackgroundAudioS
   const background = backgroundAudio
     ? `  <mstts:backgroundaudio src="${escapeXml(backgroundAudio.music.url)}" volume="${boundedNumber(backgroundAudio.volume, 0, 100, 1)}" fadein="${Math.round(boundedNumber(backgroundAudio.fadeIn, 0, 10000, 0))}" fadeout="${Math.round(boundedNumber(backgroundAudio.fadeOut, 0, 10000, 0))}"/>\n`
     : '';
-  return `<speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" xmlns:mstts="http://www.w3.org/2001/mstts" xml:lang="zh-CN">\n${background}${content}\n</speak>`;
+  return `<speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" xmlns:mstts="https://www.w3.org/2001/mstts" xml:lang="zh-CN">\n${background}${content}\n</speak>`;
 };
 
 const voiceName = (voice: Voice | undefined, fallback: string) => voice?.LocalName || voice?.DisplayName || fallback;
@@ -210,6 +262,14 @@ export function EditorPage() {
   const [prosodyRate, setProsodyRate] = useState('');
   const [prosodyVolume, setProsodyVolume] = useState('');
   const [prosodyContour, setProsodyContour] = useState('');
+  const [sayAsType, setSayAsType] = useState('characters');
+  const [sayAsFormat, setSayAsFormat] = useState('');
+  const [sayAsDetail, setSayAsDetail] = useState('');
+  const [mathVerbose, setMathVerbose] = useState(false);
+  const [mathLanguage, setMathLanguage] = useState('');
+  const [styleMarkerTab, setStyleMarkerTab] = useState<'styles' | 'paralinguistics'>('styles');
+  const [styleMarkerKeyword, setStyleMarkerKeyword] = useState('');
+  const [selectedStyleMarker, setSelectedStyleMarker] = useState('whispering');
   const hydrated = useRef(false);
   const repairingRoleIds = useRef(new Set<number>());
   const segmentSelections = useRef(new Map<string, { from: number; to: number }>());
@@ -272,6 +332,15 @@ export function EditorPage() {
 
   const compiledSsml = useMemo(() => buildSsml(segments, backgroundAudio), [backgroundAudio, segments]);
   const activeSegment = segments.find((segment) => segment.id === activeSegmentId) ?? segments[0];
+  const selectedSayAsOption = sayAsOptions.find((option) => option.value === sayAsType) ?? sayAsOptions[0];
+  const activeVoice = voices.find((voice) => voice.ShortName === activeSegment?.voice);
+  const activeVoiceId = activeVoice?.ShortName ?? activeSegment?.voice ?? '';
+  const activeVoiceLocale = activeVoice?.Locale ?? activeVoiceId.match(/^([a-z]{2,3}-[A-Z]{2})-/)?.[1] ?? '';
+  const activeVoiceIsHd = /dragonhd/i.test(activeVoiceId);
+  const activeVoiceIsOmni = /omni/i.test(activeVoiceId);
+  const availableSpeechStyleMarkers = activeVoiceIsOmni
+    ? speechStyleMarkers.filter((marker) => marker.value !== 'whispering')
+    : speechStyleMarkers;
   const activeSsml = view === 'source' ? source : compiledSsml;
   const totalCharacters = useMemo(() => segments.reduce((total, segment) => total + segment.text.length, 0), [segments]);
   const favoriteVoiceSet = useMemo(() => new Set(favoriteVoices.map((voice) => voice.ShortName)), [favoriteVoices]);
@@ -459,6 +528,83 @@ export function EditorPage() {
     updateSegment(segment.id, { text: nextText });
     setOpenSsmlMenu(null);
     setMessage(`已插入韵律标记：${attributes.map((attribute) => attribute.split('=')[0]).join('、')}。`);
+  };
+
+  const changeSayAsType = (value: string) => {
+    const option = sayAsOptions.find((item) => item.value === value) ?? sayAsOptions[0];
+    setSayAsType(option.value);
+    setSayAsFormat(option.defaultFormat ?? '');
+  };
+
+  const insertSayAs = () => {
+    const segment = activeSegment;
+    if (!segment) return;
+    const option = sayAsOptions.find((item) => item.value === sayAsType) ?? sayAsOptions[0];
+    const validFormat = option.formats?.some((format) => format.value === sayAsFormat) ? sayAsFormat : '';
+    const attributes = [
+      `interpret-as="${escapeXml(option.value)}"`,
+      validFormat ? `format="${escapeXml(validFormat)}"` : '',
+      sayAsDetail.trim() ? `detail="${escapeXml(sayAsDetail.trim())}"` : '',
+    ].filter(Boolean).join(' ');
+    const selection = segmentSelections.current.get(segment.id) ?? { from: segment.text.length, to: segment.text.length };
+    const start = Math.max(0, Math.min(selection.from, segment.text.length));
+    const end = Math.max(start, Math.min(selection.to, segment.text.length));
+    const selected = segment.text.slice(start, end) || '要设置的文字';
+    const replacement = `<say-as ${attributes}>${selected}</say-as>`;
+    const nextText = `${segment.text.slice(0, start)}${replacement}${segment.text.slice(end)}`;
+    segmentSelections.current.set(segment.id, { from: start, to: start + replacement.length });
+    updateSegment(segment.id, { text: nextText });
+    setOpenSsmlMenu(null);
+    setMessage(`已将所选文字设置为“${option.label}”元素。`);
+  };
+
+  const insertMath = () => {
+    const segment = activeSegment;
+    if (!segment) return;
+    const selection = segmentSelections.current.get(segment.id);
+    if (!selection || selection.from === selection.to) {
+      setMessage('请先在当前片段中选择需要按数学公式朗读的文字。');
+      return;
+    }
+    const start = Math.max(0, Math.min(selection.from, segment.text.length));
+    const end = Math.max(start, Math.min(selection.to, segment.text.length));
+    const selected = segment.text.slice(start, end);
+    if (!selected.trim()) {
+      setMessage('选择的公式内容不能为空。');
+      return;
+    }
+    const formula = mathLanguage
+      ? `<lang xml:lang="${escapeXml(mathLanguage)}">${selected}</lang>`
+      : selected;
+    const verbosity = mathVerbose ? '<mstts:mathspeechverbosity level="verbose"/>' : '';
+    const replacement = `<mstts:prompt domain="Math"/>${verbosity}${formula}`;
+    const nextText = `${segment.text.slice(0, start)}${replacement}${segment.text.slice(end)}`;
+    segmentSelections.current.set(segment.id, { from: start, to: start + replacement.length });
+    updateSegment(segment.id, { text: nextText });
+    setOpenSsmlMenu(null);
+    setMessage(`已将所选文字设置为数学公式朗读${mathVerbose ? '，并启用括号详细朗读' : ''}。`);
+  };
+
+  const insertStyleMarker = () => {
+    const segment = activeSegment;
+    if (!segment) return;
+    if (!activeVoiceIsHd) {
+      setMessage('副语言 style marker 仅支持 Dragon HD、Dragon HD Omni 或 Dragon HD Flash 音色。');
+      return;
+    }
+    const markerOptions = styleMarkerTab === 'styles' ? availableSpeechStyleMarkers : paralinguisticMarkers;
+    const marker = markerOptions.find((option) => option.value === selectedStyleMarker) ?? markerOptions[0];
+    if (!marker) return;
+    const selection = segmentSelections.current.get(segment.id) ?? { from: segment.text.length, to: segment.text.length };
+    const start = Math.max(0, Math.min(selection.from, segment.text.length));
+    const end = Math.max(start, Math.min(selection.to, segment.text.length));
+    const selected = segment.text.slice(start, end);
+    const replacement = `[${marker.value}] ${selected}`;
+    const nextText = `${segment.text.slice(0, start)}${replacement}${segment.text.slice(end)}`;
+    segmentSelections.current.set(segment.id, { from: start, to: start + replacement.length });
+    updateSegment(segment.id, { text: nextText });
+    setOpenSsmlMenu(null);
+    setMessage(`已插入${styleMarkerTab === 'styles' ? '讲话风格' : '副语言'}标记 [${marker.value}]。`);
   };
 
   const addSegment = () => {
@@ -657,6 +803,43 @@ export function EditorPage() {
               {ssmlToolGroups.map((group, groupIndex) => {
                 const Icon = ssmlToolIcons[groupIndex];
                 const isOpen = openSsmlMenu === group.label;
+                if (group.label === '副语言') {
+                  const markerOptions = styleMarkerTab === 'styles' ? availableSpeechStyleMarkers : paralinguisticMarkers;
+                  const keyword = styleMarkerKeyword.trim().toLowerCase();
+                  const markerResults = markerOptions.filter((marker) => !keyword || `${marker.value} ${marker.label}`.toLowerCase().includes(keyword));
+                  const effectiveMarker = markerOptions.find((marker) => marker.value === selectedStyleMarker) ?? markerOptions[0];
+                  const selection = activeSegment ? segmentSelections.current.get(activeSegment.id) : undefined;
+                  const selectedText = activeSegment && selection ? activeSegment.text.slice(selection.from, selection.to).trim() : '';
+                  return <div className={`ssml-tool-menu ${isOpen ? 'open' : ''}`} key={group.label}>
+                    <button type="button" aria-expanded={isOpen} onClick={() => setOpenSsmlMenu(isOpen ? null : group.label)}><Icon size={14} /><span>{group.label}</span><ChevronDown size={12} /></button>
+                    {isOpen && <div className="ssml-tool-popover style-marker-popover">
+                      <div className="prosody-tool-heading"><b>设置讲话风格与声音</b><small>以 SSML style marker 形式插入，例如 [whispering]</small></div>
+                      <div className="break-mode-tabs style-marker-tabs"><button className={styleMarkerTab === 'styles' ? 'active' : ''} onClick={() => { setStyleMarkerTab('styles'); setStyleMarkerKeyword(''); setSelectedStyleMarker(activeVoiceIsOmni ? 'calm' : 'whispering'); }}>讲话风格 <span>{availableSpeechStyleMarkers.length}</span></button><button className={styleMarkerTab === 'paralinguistics' ? 'active' : ''} onClick={() => { setStyleMarkerTab('paralinguistics'); setStyleMarkerKeyword(''); setSelectedStyleMarker('laughter'); }}>声音 <span>{paralinguisticMarkers.length}</span></button></div>
+                      <div className="style-marker-search"><Search size={14} /><input value={styleMarkerKeyword} onChange={(event) => setStyleMarkerKeyword(event.target.value)} placeholder="搜索中文名称或 marker" /></div>
+                      <div className="style-marker-options">{markerResults.length ? markerResults.map((marker) => <button className={(effectiveMarker?.value ?? selectedStyleMarker) === marker.value ? 'selected' : ''} key={marker.value} onClick={() => setSelectedStyleMarker(marker.value)}><b>{marker.label}</b><small>[{marker.value}]</small></button>) : <div className="style-marker-empty">没有匹配的标记</div>}</div>
+                      <div className={`style-marker-compatibility ${activeVoiceIsHd ? 'supported' : 'unsupported'}`}><b>{activeVoiceIsHd ? '当前音色支持 HD style marker' : '当前音色不支持此功能'}</b><small>{activeVoiceId || '未选择音色'}{activeVoiceLocale ? ` · ${activeVoiceLocale}` : ''}{styleMarkerTab === 'styles' && activeVoiceIsHd && !/^en-/i.test(activeVoiceLocale) ? ' · 讲话风格主要用于英语内容' : ''}</small></div>
+                      <p>{selectedText ? `将 [${effectiveMarker?.value}] 添加到所选文字“${selectedText.slice(0, 36)}${selectedText.length > 36 ? '…' : ''}”之前。` : `未选择文字时，将在当前光标处插入 [${effectiveMarker?.value}]，用于后续内容。`}</p>
+                      <button className="style-marker-insert-button" onClick={insertStyleMarker} disabled={!activeVoiceIsHd || !effectiveMarker}><Languages size={13} />应用 [{effectiveMarker?.value}]</button>
+                    </div>}
+                  </div>;
+                }
+                if (group.label === '数学') {
+                  const selection = activeSegment ? segmentSelections.current.get(activeSegment.id) : undefined;
+                  const selectedFormula = activeSegment && selection
+                    ? activeSegment.text.slice(selection.from, selection.to).trim()
+                    : '';
+                  return <div className={`ssml-tool-menu ${isOpen ? 'open' : ''}`} key={group.label}>
+                    <button type="button" aria-expanded={isOpen} onClick={() => setOpenSsmlMenu(isOpen ? null : group.label)}><Icon size={14} /><span>{group.label}</span><ChevronDown size={12} /></button>
+                    {isOpen && <div className="ssml-tool-popover math-tool-popover">
+                      <div className="prosody-tool-heading"><b>按数学公式朗读所选文字</b><small>使用 Azure Math 发音规则</small></div>
+                      <div className={`math-selection-preview ${selectedFormula ? '' : 'empty'}`}><span>当前选择</span><b title={selectedFormula}>{selectedFormula || '请先在片段中选择数学公式'}</b></div>
+                      <label className="math-verbose-option"><input type="checkbox" checked={mathVerbose} onChange={(event) => setMathVerbose(event.target.checked)} /><span><b>详细朗读括号</b><small>启用 mathspeechverbosity="verbose"</small></span></label>
+                      <label className="say-as-tool-field"><span>公式语言 <em>可选</em></span><select value={mathLanguage} onChange={(event) => setMathLanguage(event.target.value)}><option value="">使用当前音色语言</option><option value="zh-CN">中文 · zh-CN</option><option value="en-US">英语（美国）· en-US</option><option value="en-GB">英语（英国）· en-GB</option><option value="de-DE">德语 · de-DE</option><option value="es-ES">西班牙语 · es-ES</option><option value="es-MX">西班牙语（墨西哥）· es-MX</option><option value="fr-FR">法语 · fr-FR</option><option value="fr-CA">法语（加拿大）· fr-CA</option><option value="it-IT">意大利语 · it-IT</option><option value="ja-JP">日语 · ja-JP</option><option value="ko-KR">韩语 · ko-KR</option><option value="pt-BR">葡萄牙语（巴西）· pt-BR</option></select><small>指定其他语言时，需要当前音色支持多语言。</small></label>
+                      <p>默认不会读出括号；启用详细朗读后会把括号一并读出。</p>
+                      <button className="math-insert-button" onClick={insertMath} disabled={!selectedFormula}><Calculator size={13} />应用数学朗读</button>
+                    </div>}
+                  </div>;
+                }
                 if (group.label === '停顿') return <div className={`ssml-tool-menu ${isOpen ? 'open' : ''}`} key={group.label}>
                   <button type="button" aria-expanded={isOpen} onClick={() => setOpenSsmlMenu(isOpen ? null : group.label)}><Icon size={14} /><span>{group.label}</span><ChevronDown size={12} /></button>
                   {isOpen && <div className="ssml-tool-popover break-tool-popover">
@@ -698,6 +881,17 @@ export function EditorPage() {
                     </div>}
                   </div>;
                 }
+                if (group.label === '元素') return <div className={`ssml-tool-menu ${isOpen ? 'open' : ''}`} key={group.label}>
+                  <button type="button" aria-expanded={isOpen} onClick={() => setOpenSsmlMenu(isOpen ? null : group.label)}><Icon size={14} /><span>{group.label}</span><ChevronDown size={12} /></button>
+                  {isOpen && <div className="ssml-tool-popover say-as-tool-popover">
+                    <div className="prosody-tool-heading"><b>设置所选文字的朗读元素</b><small>使用 Azure SSML 的 say-as 元素</small></div>
+                    <label className="say-as-tool-field"><span>元素类型 interpret-as</span><select value={sayAsType} onChange={(event) => changeSayAsType(event.target.value)}>{sayAsOptions.map((option) => <option key={option.value} value={option.value}>{option.label} · {option.value}</option>)}</select><small>{selectedSayAsOption.hint}</small></label>
+                    {selectedSayAsOption.formats?.length ? <label className="say-as-tool-field"><span>格式 format <em>可选</em></span><select value={sayAsFormat} onChange={(event) => setSayAsFormat(event.target.value)}><option value="">自动识别</option>{selectedSayAsOption.formats.map((format) => <option key={format.value} value={format.value}>{format.label}</option>)}</select></label> : <div className="say-as-format-empty"><span>格式 format</span><small>当前元素无需设置格式</small></div>}
+                    <label className="say-as-tool-field"><span>详细程度 detail <em>可选</em></span><input value={sayAsDetail} onChange={(event) => setSayAsDetail(event.target.value)} placeholder="没有标准值，一般留空" /></label>
+                    <p>先在片段中选择文字；未选择时会插入“要设置的文字”占位内容。</p>
+                    <button className="say-as-insert-button" onClick={insertSayAs}><Tags size={13} />应用元素</button>
+                  </div>}
+                </div>;
                 if (group.label === '音效') return <div className="ssml-tool-menu" key={group.label}>
                   <button type="button" aria-haspopup="dialog" onClick={openSoundEffectDialog}><Icon size={14} /><span>{group.label}</span></button>
                 </div>;

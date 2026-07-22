@@ -1,4 +1,4 @@
-import type { AiReviewResult, BackgroundMusic, ConnectionResult, EditorRole, HistoryItem, LlmConnectionResult, LlmModel, LlmProvider, Settings, SoundEffect, SsmlValidation, SynthesisResult, Voice } from '../types/api';
+import type { AiReviewResult, BackgroundMusic, ConnectionResult, EditorRole, HistoryItem, LlmConnectionResult, LlmModel, LlmProvider, Settings, SoundEffect, SsmlValidation, SynthesisResult, Voice, VoicePreview } from '../types/api';
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
   const response = await fetch(path, options);
@@ -16,6 +16,10 @@ export const api = {
     method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data),
   }),
   voices: () => request<Voice[]>('/api/voices'),
+  voicePreviews: () => request<VoicePreview[]>('/api/voices/previews'),
+  ensureVoicePreview: (voice: Voice) => request<VoicePreview>('/api/voices/previews', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ voice }),
+  }),
   favoriteVoices: () => request<string[]>('/api/voices/favorites'),
   favoriteVoiceItems: () => request<Voice[]>('/api/voices/favorites/items'),
   addFavoriteVoice: (voice: Voice) => request<{ ok: boolean }>(`/api/voices/favorites/${encodeURIComponent(voice.ShortName)}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(voice) }),

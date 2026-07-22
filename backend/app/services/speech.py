@@ -35,7 +35,7 @@ def auth_headers(config: dict[str, Any]) -> dict[str, str]:
     }
 
 
-def build_ssml(text: str, voice: str, params: dict[str, Any]) -> str:
+def build_ssml(text: str, voice: str, params: dict[str, Any], locale: str = "zh-CN") -> str:
     def attribute(name: str, value: Any) -> str:
         return f" {name}={quoteattr(str(value))}" if value else ""
 
@@ -51,7 +51,7 @@ def build_ssml(text: str, voice: str, params: dict[str, Any]) -> str:
     expression_close = "</mstts:express-as>" if expression else ""
     return (
         '<speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" '
-        'xmlns:mstts="http://www.w3.org/2001/mstts" xml:lang="zh-CN">'
+        f'xmlns:mstts="http://www.w3.org/2001/mstts" xml:lang={quoteattr(locale or "zh-CN")}>'
         f"<voice name={quoteattr(voice)}>{expression_open}{prosody_open}"
         f"{xml_escape(text)}{prosody_close}{expression_close}</voice></speak>"
     )

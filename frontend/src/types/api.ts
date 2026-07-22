@@ -12,6 +12,17 @@ export interface Voice {
   VoiceTag?: Record<string, string | string[] | undefined>;
 }
 
+export interface VoicePreview {
+  shortName: string;
+  locale: string;
+  text: string;
+  fileName: string;
+  url: string;
+  createdAt: number;
+  version: number;
+  cached?: boolean;
+}
+
 export interface HistoryItem {
   id: string;
   ts: number;

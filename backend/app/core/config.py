@@ -10,6 +10,7 @@ from app.core.secrets import get_secret, store_secret
 ROOT = Path(__file__).resolve().parents[3]
 CONFIG_PATH = ROOT / "config.json"
 HISTORY_DIR = ROOT / "history"
+VOICE_PREVIEW_DIR = ROOT / "voice_previews"
 STATIC_DIR = ROOT / "static"
 FRONTEND_DIST_DIR = ROOT / "frontend" / "dist"
 

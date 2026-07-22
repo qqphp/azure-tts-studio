@@ -34,6 +34,10 @@ class SsmlPayload(BaseModel):
     ssml: str = Field(min_length=1)
 
 
+class VoicePreviewPayload(BaseModel):
+    voice: dict[str, Any]
+
+
 class HistoryBatchDeletePayload(BaseModel):
     ids: list[str] = Field(default_factory=list)
 

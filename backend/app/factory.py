@@ -7,7 +7,7 @@ from fastapi.staticfiles import StaticFiles
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.api import router
-from app.core.config import FRONTEND_DIST_DIR, HISTORY_DIR, STATIC_DIR, migrate_legacy_secrets
+from app.core.config import FRONTEND_DIST_DIR, HISTORY_DIR, STATIC_DIR, VOICE_PREVIEW_DIR, migrate_legacy_secrets
 
 
 class SpaStaticFiles(StaticFiles):
@@ -26,6 +26,7 @@ class SpaStaticFiles(StaticFiles):
 def create_app() -> FastAPI:
     """Create the HTTP application; keeps wiring out of business modules."""
     HISTORY_DIR.mkdir(exist_ok=True)
+    VOICE_PREVIEW_DIR.mkdir(exist_ok=True)
     migrate_legacy_secrets()
     application = FastAPI(title="Azure TTS Studio", version="2.0.0")
     application.include_router(router)
