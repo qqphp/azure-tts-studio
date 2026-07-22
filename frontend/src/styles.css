@@ -133,6 +133,16 @@ body { background: radial-gradient(circle at 79% -18%, var(--theme-glow) 0, tran
 .voice-search, .voice-filter-grid select, .style-select select { border-color: var(--theme-border-strong); background: var(--theme-input); color: var(--theme-text); }
 .voice-search input, .studio-main-card textarea { color: var(--theme-text); }
 .voice-filter-actions, .expression-settings .style-select { color: var(--theme-muted); }
+.expression-settings .setting-row { color: var(--theme-text); }
+.expression-settings .setting-row > span { font-size: 14px; font-weight: 800; letter-spacing: .02em; }
+.expression-settings .setting-row output { min-width: 46px; padding: 4px 7px; border-radius: 6px; background: var(--theme-accent-soft); color: var(--theme-accent-deep); font-size: 11px; font-weight: 800; text-align: center; }
+.expression-settings .setting-row input[type="range"] { width: 100%; height: 18px; margin: 0; appearance: none; background: transparent; cursor: pointer; accent-color: var(--theme-accent); }
+.expression-settings .setting-row input[type="range"]::-webkit-slider-runnable-track { height: 5px; border-radius: 999px; background: linear-gradient(90deg, var(--theme-accent) 0 var(--range-progress), var(--theme-border-strong) var(--range-progress) 100%); }
+.expression-settings .setting-row input[type="range"]::-webkit-slider-thumb { width: 16px; height: 16px; margin-top: -5.5px; appearance: none; border: 3px solid var(--theme-card); border-radius: 50%; background: var(--theme-accent-deep); box-shadow: 0 0 0 1px var(--theme-accent), 0 2px 6px color-mix(in srgb, var(--theme-accent) 32%, transparent); }
+.expression-settings .setting-row input[type="range"]::-moz-range-track { height: 5px; border-radius: 999px; background: var(--theme-border-strong); }
+.expression-settings .setting-row input[type="range"]::-moz-range-progress { height: 5px; border-radius: 999px; background: var(--theme-accent); }
+.expression-settings .setting-row input[type="range"]::-moz-range-thumb { width: 11px; height: 11px; border: 3px solid var(--theme-card); border-radius: 50%; background: var(--theme-accent-deep); box-shadow: 0 0 0 1px var(--theme-accent), 0 2px 6px color-mix(in srgb, var(--theme-accent) 32%, transparent); }
+.expression-settings .setting-row input[type="range"]:focus-visible { outline: 2px solid var(--theme-accent); outline-offset: 3px; border-radius: 999px; }
 .studio-layout .voice-option:hover:not(.selected) { background: var(--theme-surface); border-color: var(--theme-border-strong); }
 .studio-layout .voice-option.selected { background: var(--theme-accent-soft); border-color: var(--theme-accent); box-shadow: 0 0 0 1px color-mix(in srgb, var(--theme-accent) 22%, transparent); }
 .voice-library-tabs { border-color: var(--theme-border); background: var(--theme-input); }
