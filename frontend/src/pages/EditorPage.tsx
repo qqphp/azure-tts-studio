@@ -672,6 +672,7 @@ export function EditorPage() {
                     <div className="prosody-tool-heading"><b>调整当前片段的输出时长</b><small>目标片段：{activeSegment?.name || '未命名片段'}</small></div>
                     <label className="break-tool-field"><span>输出时长 <em>最大 300 秒</em></span><div className="duration-value-control"><input type="number" min={audioDurationUnit === 'ms' ? 1 : 0.001} max={audioDurationUnit === 'ms' ? 300000 : 300} step={audioDurationUnit === 'ms' ? 100 : 0.1} value={audioDurationValue} onChange={(event) => setAudioDurationValue(event.target.value)} /><select value={audioDurationUnit} onChange={(event) => setAudioDurationUnit(event.target.value as 's' | 'ms')} aria-label="时长单位"><option value="s">秒 s</option><option value="ms">毫秒 ms</option></select></div></label>
                     <p><code>mstts:audioduration</code> 会调整当前片段内全部文本，此值应介于原始音频的 0.5 到 2 倍，没有任何其他速率设置。 例如，如果请求的音频持续时间为 30s，则原始音频必须介于 15 到 60 秒之间。 </p>
+                    <p>设置时长需要音色支持，否则设置了也会无效。</p>
                     <div className="duration-tool-actions">{activeSegment?.audioDuration && <button className="duration-clear-button" onClick={clearAudioDuration}>清除 {activeSegment.audioDuration}</button>}<button className="break-insert-button" onClick={applyAudioDuration} disabled={!audioDurationValue.trim()}><Timer size={13} />应用时长</button></div>
                   </div>}
                 </div>;
