@@ -1,10 +1,23 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { AudioLines, ChevronLeft, ChevronRight, Heart, LoaderCircle, Play, Search } from 'lucide-react';
+import { AudioLines, ChevronLeft, ChevronRight, Heart, LoaderCircle, Play, RotateCcw, Search } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { PageHeader } from '../components/ui/PageHeader';
 import { api } from '../services/api';
 import { usePlayerStore } from '../stores/player-store';
 import type { Voice } from '../types/api';
+import {
+  filterVoices,
+  initialVoiceFilters,
+  localeNames,
+  localizedLabel,
+  personalityLabels,
+  roleLabels,
+  scenarioLabels,
+  statusLabels,
+  typeLabels,
+  voiceFilterOptions,
+  type VoiceFilterState,
+} from '../voice-filters';
 
 const PAGE_SIZE = 10;
 
@@ -20,7 +33,7 @@ const voiceTitle = (voice: Voice) => voice.LocalName || voice.DisplayName || voi
 export function VoicesPage() {
   const client = useQueryClient();
   const setTrack = usePlayerStore((state) => state.setTrack);
-  const [keyword, setKeyword] = useState('');
+  const [filters, setFilters] = useState<VoiceFilterState>(initialVoiceFilters);
   const [tab, setTab] = useState<'all' | 'favorites'>('all');
   const [currentPage, setCurrentPage] = useState(1);
   const [batchProgress, setBatchProgress] = useState<BatchProgress | null>(null);
@@ -32,9 +45,11 @@ export function VoicesPage() {
   const previewMap = useMemo(() => new Map(previews.map((preview) => [preview.shortName, preview])), [previews]);
   const cachedVoiceCount = useMemo(() => voices.filter((voice) => previewMap.has(voice.ShortName)).length, [previewMap, voices]);
   const source = tab === 'favorites' ? favorites : voices;
-  const results = useMemo(() => source.filter((voice) => `${voice.ShortName} ${voice.LocalName} ${voice.DisplayName} ${voice.LocaleName} ${voice.Locale}`.toLowerCase().includes(keyword.toLowerCase())), [source, keyword]);
+  const options = useMemo(() => voiceFilterOptions(voices), [voices]);
+  const results = useMemo(() => filterVoices(source, filters), [source, filters]);
   const pageCount = Math.max(1, Math.ceil(results.length / PAGE_SIZE));
   const visibleResults = results.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+  const updateFilter = <K extends keyof VoiceFilterState>(key: K, value: VoiceFilterState[K]) => setFilters((current) => ({ ...current, [key]: value }));
   const favorite = useMutation({
     mutationFn: async (voice: Voice) => favoriteSet.has(voice.ShortName) ? api.removeFavoriteVoice(voice.ShortName) : api.addFavoriteVoice(voice),
     onSuccess: () => {
@@ -52,7 +67,7 @@ export function VoicesPage() {
     onError: (cause) => setPreviewMessage(cause instanceof Error ? cause.message : '试听音频生成失败'),
   });
 
-  useEffect(() => { setCurrentPage(1); }, [tab, keyword]);
+  useEffect(() => { setCurrentPage(1); }, [tab, filters]);
   useEffect(() => { setCurrentPage((page) => Math.min(page, pageCount)); }, [pageCount]);
 
   const playPreview = (voice: Voice) => {
@@ -105,7 +120,24 @@ export function VoicesPage() {
         </button>
       </div>
     </div>
-    <div className="filter-input"><Search size={18} /><input value={keyword} onChange={(event) => setKeyword(event.target.value)} placeholder="搜索名称、语言或音色 ID" /></div>
+    <div className="voice-filter-panel voice-library-filter-panel">
+      <div className="voice-search"><Search size={16} /><input value={filters.keyword} onChange={(event) => updateFilter('keyword', event.target.value)} placeholder="搜索音色 / 名称 / 地区…" /></div>
+      <div className="voice-filter-grid">
+        <select value={filters.locale} onChange={(event) => updateFilter('locale', event.target.value)}><option value="">全部语言</option>{options.locales.map((item) => <option key={item} value={item}>{localeNames[item] || item}</option>)}</select>
+        <select value={filters.gender} onChange={(event) => updateFilter('gender', event.target.value)}><option value="">全部性别</option><option value="Female">女声</option><option value="Male">男声</option></select>
+        <select value={filters.type} onChange={(event) => updateFilter('type', event.target.value)}><option value="">全部类型</option>{options.types.map((item) => <option key={item} value={item}>{item} · {typeLabels[item] || item}</option>)}</select>
+        <select value={filters.role} onChange={(event) => updateFilter('role', event.target.value)}><option value="">全部年龄感 / 角色</option>{options.roles.map((item) => <option key={item} value={item}>{roleLabels[item] || item}</option>)}</select>
+        <select value={filters.status} onChange={(event) => updateFilter('status', event.target.value)}><option value="">全部状态</option>{options.statuses.map((item) => <option key={item} value={item}>{item} · {statusLabels[item] || item}</option>)}</select>
+        <select value={filters.scenario} onChange={(event) => updateFilter('scenario', event.target.value)}><option value="">全部使用场景</option>{options.scenarios.map((item) => <option key={item} value={item}>{item} · {localizedLabel(item, scenarioLabels)}</option>)}</select>
+        <select value={filters.personality} onChange={(event) => updateFilter('personality', event.target.value)}><option value="">全部音色人格</option>{options.personalities.map((item) => <option key={item} value={item}>{item} · {localizedLabel(item, personalityLabels)}</option>)}</select>
+        <select value={filters.model} onChange={(event) => updateFilter('model', event.target.value)}><option value="">全部模型系列</option>{options.models.map((item) => <option key={item} value={item}>{item}</option>)}</select>
+        <select value={filters.source} onChange={(event) => updateFilter('source', event.target.value)}><option value="">全部模型来源</option>{options.sources.map((item) => <option key={item} value={item}>{item}</option>)}</select>
+      </div>
+      <div className="voice-filter-actions">
+        <label><input type="checkbox" checked={filters.styleOnly} onChange={(event) => updateFilter('styleOnly', event.target.checked)} />仅支持风格</label>
+        <button className="text-button" onClick={() => setFilters(initialVoiceFilters)}><RotateCcw size={14} />重置筛选</button>
+      </div>
+    </div>
     {previewMessage && <p className={`voice-preview-message ${preview.isError || batchProgress?.failed ? 'error' : ''}`}>{previewMessage}</p>}
     {tab === 'all' && isLoading ? <p className="state-message">正在加载音色…</p> : tab === 'all' && error ? <p className="state-message error">{error.message}。请先在设置中连接 Azure Speech。</p> : tab === 'favorites' && favoritesLoading ? <p className="state-message">正在读取收藏…</p> : <div className="voice-library-content">
       <div className="voice-grid">{results.length ? visibleResults.map((voice) => {
