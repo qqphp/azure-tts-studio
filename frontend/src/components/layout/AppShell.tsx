@@ -22,7 +22,7 @@ export function AppShell() {
   useEffect(() => applyTheme(settings?.theme), [settings?.theme]);
   return <div className={`app-shell ${hasAudioPlayer ? 'has-audio-player' : ''}`}>
     <aside className="sidebar">
-      <div className="brand"><span className="brand-mark"><Sparkles size={18} /></span><span>Azure 配音工坊</span></div>
+      <div className="brand"><span className="brand-mark"><Sparkles size={18} /></span><span>大风车配音工坊</span></div>
       <nav className="navigation" aria-label="主导航">
         {navItems.map(({ to, label, icon: Icon, end }) => <NavLink key={to} to={to} end={end} className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
           <Icon size={18} /><span>{label}</span>
