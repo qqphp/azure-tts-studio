@@ -7,6 +7,8 @@ import {
   Calculator,
   CheckCircle2,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   Code2,
   Copy,
   FileCode2,
@@ -31,6 +33,19 @@ import { PageHeader } from '../components/ui/PageHeader';
 import { api } from '../services/api';
 import { usePlayerStore } from '../stores/player-store';
 import type { BackgroundMusic, EditorRole, Voice } from '../types/api';
+import {
+  filterVoices,
+  initialVoiceFilters,
+  localeNames,
+  localizedLabel,
+  personalityLabels,
+  roleLabels,
+  scenarioLabels,
+  statusLabels,
+  typeLabels,
+  voiceFilterOptions,
+  type VoiceFilterState,
+} from '../voice-filters';
 
 type EditorSegment = {
   id: string;
@@ -215,10 +230,118 @@ const rateLabels: Record<string, string> = {
   'x-fast': 'x-fast · 2.0x',
 };
 
+const roleRateOptions = [
+  { value: 'x-slow', label: 'x-slow · 0.5x · -50%' },
+  { value: 'slow', label: 'slow · 0.64x · -46%' },
+  { value: 'medium', label: 'medium · 1.0x · 默认' },
+  { value: 'fast', label: 'fast · 1.55x · +55%' },
+  { value: 'x-fast', label: 'x-fast · 2.0x · +100%' },
+];
+
+const ROLE_VOICE_PAGE_SIZE = 6;
+
+type RoleVoicePickerProps = {
+  voices: Voice[];
+  favorites: Voice[];
+  favoritesLoading: boolean;
+  voicesLoading: boolean;
+  selected: Voice | null;
+  disabled?: boolean;
+  onSelect: (voice: Voice) => void;
+};
+
+function RoleVoicePicker({ voices, favorites, favoritesLoading, voicesLoading, selected, disabled, onSelect }: RoleVoicePickerProps) {
+  const client = useQueryClient();
+  const setTrack = usePlayerStore((state) => state.setTrack);
+  const [filters, setFilters] = useState<VoiceFilterState>(initialVoiceFilters);
+  const [tab, setTab] = useState<'all' | 'favorites'>('all');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [previewMessage, setPreviewMessage] = useState('');
+  const { data: previews = [] } = useQuery({ queryKey: ['voice-previews'], queryFn: api.voicePreviews });
+  const favoriteSet = useMemo(() => new Set(favorites.map((voice) => voice.ShortName)), [favorites]);
+  const previewMap = useMemo(() => new Map(previews.map((preview) => [preview.shortName, preview])), [previews]);
+  const options = useMemo(() => voiceFilterOptions(voices), [voices]);
+  const source = tab === 'favorites' ? favorites : voices;
+  const results = useMemo(() => filterVoices(source, filters), [filters, source]);
+  const pageCount = Math.max(1, Math.ceil(results.length / ROLE_VOICE_PAGE_SIZE));
+  const visibleResults = results.slice((currentPage - 1) * ROLE_VOICE_PAGE_SIZE, currentPage * ROLE_VOICE_PAGE_SIZE);
+  const updateFilter = <K extends keyof VoiceFilterState>(key: K, value: VoiceFilterState[K]) => setFilters((current) => ({ ...current, [key]: value }));
+  const preview = useMutation({
+    mutationFn: async (voice: Voice) => ({ voice, result: await api.ensureVoicePreview(voice) }),
+    onSuccess: ({ voice, result }) => {
+      client.invalidateQueries({ queryKey: ['voice-previews'] });
+      setTrack(result.url, `${voiceName(voice, voice.ShortName)} · 离线试听`);
+      setPreviewMessage(`已生成并缓存“${voiceName(voice, voice.ShortName)}”的试听音频。`);
+    },
+    onError: (cause) => setPreviewMessage(cause instanceof Error ? cause.message : '试听音频生成失败'),
+  });
+
+  useEffect(() => { setCurrentPage(1); }, [filters, tab]);
+  useEffect(() => { setCurrentPage((page) => Math.min(page, pageCount)); }, [pageCount]);
+
+  const playPreview = (voice: Voice) => {
+    const cached = previewMap.get(voice.ShortName);
+    if (cached) {
+      setTrack(cached.url, `${voiceName(voice, voice.ShortName)} · 离线试听`);
+      setPreviewMessage(`正在播放 ${cached.locale} 示例：${cached.text}`);
+      return;
+    }
+    preview.mutate(voice);
+  };
+
+  return <div className="role-voice-picker">
+    <div className="voice-library-tabs role-dialog-tabs">
+      <button className={tab === 'all' ? 'active' : ''} onClick={() => setTab('all')}>全部音色 <span>{voices.length}</span></button>
+      <button className={tab === 'favorites' ? 'active' : ''} onClick={() => setTab('favorites')}>收藏 <span>{favorites.length}</span></button>
+    </div>
+    <div className="voice-filter-panel role-voice-filter-panel">
+      <div className="voice-search"><Search size={16} /><input value={filters.keyword} onChange={(event) => updateFilter('keyword', event.target.value)} placeholder="搜索音色 / 名称 / 地区…" /></div>
+      <div className="voice-filter-grid">
+        <select value={filters.locale} onChange={(event) => updateFilter('locale', event.target.value)}><option value="">全部语言</option>{options.locales.map((item) => <option key={item} value={item}>{localeNames[item] || item}</option>)}</select>
+        <select value={filters.gender} onChange={(event) => updateFilter('gender', event.target.value)}><option value="">全部性别</option><option value="Female">女声</option><option value="Male">男声</option></select>
+        <select value={filters.type} onChange={(event) => updateFilter('type', event.target.value)}><option value="">全部类型</option>{options.types.map((item) => <option key={item} value={item}>{item} · {typeLabels[item] || item}</option>)}</select>
+        <select value={filters.role} onChange={(event) => updateFilter('role', event.target.value)}><option value="">全部年龄感 / 角色</option>{options.roles.map((item) => <option key={item} value={item}>{roleLabels[item] || item}</option>)}</select>
+        <select value={filters.status} onChange={(event) => updateFilter('status', event.target.value)}><option value="">全部状态</option>{options.statuses.map((item) => <option key={item} value={item}>{item} · {statusLabels[item] || item}</option>)}</select>
+        <select value={filters.scenario} onChange={(event) => updateFilter('scenario', event.target.value)}><option value="">全部使用场景</option>{options.scenarios.map((item) => <option key={item} value={item}>{item} · {localizedLabel(item, scenarioLabels)}</option>)}</select>
+        <select value={filters.personality} onChange={(event) => updateFilter('personality', event.target.value)}><option value="">全部音色人格</option>{options.personalities.map((item) => <option key={item} value={item}>{item} · {localizedLabel(item, personalityLabels)}</option>)}</select>
+        <select value={filters.model} onChange={(event) => updateFilter('model', event.target.value)}><option value="">全部模型系列</option>{options.models.map((item) => <option key={item} value={item}>{item}</option>)}</select>
+        <select value={filters.source} onChange={(event) => updateFilter('source', event.target.value)}><option value="">全部模型来源</option>{options.sources.map((item) => <option key={item} value={item}>{item}</option>)}</select>
+      </div>
+      <div className="voice-filter-actions">
+        <label><input type="checkbox" checked={filters.styleOnly} onChange={(event) => updateFilter('styleOnly', event.target.checked)} />仅支持风格</label>
+        <button className="text-button" onClick={() => setFilters(initialVoiceFilters)}><RotateCcw size={14} />重置筛选</button>
+      </div>
+    </div>
+    {previewMessage && <p className={`voice-preview-message role-preview-message ${preview.isError ? 'error' : ''}`}>{previewMessage}</p>}
+    <div className="role-voice-scroll"><div className="voice-grid role-voice-grid">
+      {tab === 'favorites' && favoritesLoading ? <p className="state-message">正在读取收藏…</p>
+        : tab === 'all' && voicesLoading ? <p className="state-message">正在加载音色…</p>
+          : tab === 'all' && !voices.length ? <p className="state-message">暂无可选音色，请先在设置中连接 Azure Speech。</p>
+            : visibleResults.length ? visibleResults.map((voice) => {
+              const isSelected = selected?.ShortName === voice.ShortName;
+              const cached = previewMap.has(voice.ShortName);
+              const generating = preview.isPending && preview.variables?.ShortName === voice.ShortName;
+              return <article className={`voice-card role-voice-card ${isSelected ? 'selected' : ''}`} key={voice.ShortName}>
+                {favoriteSet.has(voice.ShortName) && <Heart className="role-voice-favorite" size={14} fill="currentColor" />}
+                <button className="role-voice-select" onClick={() => onSelect(voice)} disabled={disabled}>
+                  <div className="voice-avatar large">{voice.LocalName?.slice(0, 1) ?? '声'}</div>
+                  <div><h3>{voiceName(voice, voice.ShortName)}</h3><p>{voice.LocaleName || voice.Locale} · {voice.Gender === 'Female' ? '女声' : voice.Gender === 'Male' ? '男声' : '音色'}</p></div>
+                  <div className="voice-tags">{voice.StyleList?.slice(0, 2).map((style) => <span key={style}>{style}</span>)}</div>
+                </button>
+                <button className="secondary-button role-voice-preview" onClick={() => playPreview(voice)} disabled={generating}>
+                  {generating ? <LoaderCircle className="spin" size={13} /> : <Play size={13} fill="currentColor" />}{cached ? '试听' : '生成试听'}
+                </button>
+              </article>;
+            }) : <p className="state-message">{tab === 'favorites' ? '收藏中没有匹配的音色。' : '没有找到匹配的音色。'}</p>}
+    </div></div>
+    {results.length > 0 && <div className="voice-pagination role-voice-pagination"><span>第 {currentPage} / {pageCount} 页 · 共 {results.length} 个音色</span><div><button className="pagination-button" disabled={currentPage === 1} onClick={() => setCurrentPage((page) => page - 1)} aria-label="上一页"><ChevronLeft size={16} /></button><button className="pagination-button" disabled={currentPage === pageCount} onClick={() => setCurrentPage((page) => page + 1)} aria-label="下一页"><ChevronRight size={16} /></button></div></div>}
+  </div>;
+}
+
 export function EditorPage() {
   const client = useQueryClient();
   const setTrack = usePlayerStore((state) => state.setTrack);
-  const { data: voices = [] } = useQuery({ queryKey: ['voices'], queryFn: api.voices });
+  const { data: voices = [], isLoading: voicesLoading } = useQuery({ queryKey: ['voices'], queryFn: api.voices });
   const { data: settings } = useQuery({ queryKey: ['settings'], queryFn: api.settings });
   const { data: favoriteVoices = [], isLoading: favoritesLoading } = useQuery({ queryKey: ['voice-favorite-items'], queryFn: api.favoriteVoiceItems });
   const { data: savedRoles = [], isLoading: rolesLoading } = useQuery({ queryKey: ['editor-roles'], queryFn: api.editorRoles });
@@ -231,13 +354,13 @@ export function EditorPage() {
   const [message, setMessage] = useState('');
   const [roleDialogOpen, setRoleDialogOpen] = useState(false);
   const [roleName, setRoleName] = useState('');
-  const [roleKeyword, setRoleKeyword] = useState('');
-  const [roleTab, setRoleTab] = useState<'all' | 'favorites'>('all');
+  const [roleRate, setRoleRate] = useState('medium');
   const [selectedRoleVoice, setSelectedRoleVoice] = useState<Voice | null>(null);
   const [roleDialogError, setRoleDialogError] = useState('');
   const [editingRole, setEditingRole] = useState<EditorRole | null>(null);
   const [editRoleName, setEditRoleName] = useState('');
   const [editRoleRate, setEditRoleRate] = useState('medium');
+  const [editRoleVoice, setEditRoleVoice] = useState<Voice | null>(null);
   const [editRoleError, setEditRoleError] = useState('');
   const [openSsmlMenu, setOpenSsmlMenu] = useState<string | null>(null);
   const [backgroundDialogOpen, setBackgroundDialogOpen] = useState(false);
@@ -343,13 +466,6 @@ export function EditorPage() {
     : speechStyleMarkers;
   const activeSsml = view === 'source' ? source : compiledSsml;
   const totalCharacters = useMemo(() => segments.reduce((total, segment) => total + segment.text.length, 0), [segments]);
-  const favoriteVoiceSet = useMemo(() => new Set(favoriteVoices.map((voice) => voice.ShortName)), [favoriteVoices]);
-  const roleVoiceSource = roleTab === 'favorites' ? favoriteVoices : voices;
-  const roleVoiceResults = useMemo(() => {
-    const keyword = roleKeyword.trim().toLowerCase();
-    if (!keyword) return roleVoiceSource;
-    return roleVoiceSource.filter((voice) => `${voice.ShortName} ${voice.LocalName ?? ''} ${voice.DisplayName ?? ''} ${voice.LocaleName ?? ''} ${voice.Locale ?? ''}`.toLowerCase().includes(keyword));
-  }, [roleKeyword, roleVoiceSource]);
   const backgroundCategories = useMemo(() => [...new Set(backgroundMusic.map((music) => music.category))].sort((a, b) => a.localeCompare(b, 'zh-CN')), [backgroundMusic]);
   const backgroundTags = useMemo(() => [...new Set(backgroundMusic.flatMap((music) => music.tags))].sort((a, b) => a.localeCompare(b, 'zh-CN')), [backgroundMusic]);
   const backgroundResults = useMemo(() => {
@@ -405,11 +521,11 @@ export function EditorPage() {
     onError: (cause) => setRoleDialogError(cause instanceof Error ? cause.message : '角色保存失败'),
   });
   const updateRole = useMutation({
-    mutationFn: ({ id, name, rate }: { id: number; name: string; rate: string }) => api.updateEditorRole(id, { name, rate }),
+    mutationFn: ({ id, name, rate, voice }: { id: number; name: string; rate: string; voice: Voice }) => api.updateEditorRole(id, { name, rate, voice }),
     onSuccess: (role) => {
       client.invalidateQueries({ queryKey: ['editor-roles'] });
       setSegments((current) => current.map((segment) => segment.roleId === role.id
-        ? { ...segment, name: role.name, rate: role.rate || segment.rate }
+        ? { ...segment, name: role.name, voice: role.voice.ShortName, rate: role.rate || segment.rate, style: '', role: '' }
         : segment));
       setEditingRole(null);
       setMessage(`角色“${role.name}”已更新，默认语速为 ${rateLabels[role.rate] || role.rate}。`);
@@ -644,8 +760,7 @@ export function EditorPage() {
   const openRoleDialog = () => {
     const initialVoice = voices.find((voice) => voice.ShortName === settings?.defaultVoice) ?? voices[0] ?? favoriteVoices[0] ?? null;
     setRoleName('');
-    setRoleKeyword('');
-    setRoleTab('all');
+    setRoleRate('medium');
     setSelectedRoleVoice(initialVoice);
     setRoleDialogError('');
     setRoleDialogOpen(true);
@@ -662,13 +777,14 @@ export function EditorPage() {
       return;
     }
     setRoleDialogError('');
-    createRole.mutate({ name, voice: selectedRoleVoice });
+    createRole.mutate({ name, rate: roleRate, voice: selectedRoleVoice });
   };
 
   const openEditRole = (role: EditorRole) => {
     setEditingRole(role);
     setEditRoleName(role.name);
     setEditRoleRate(role.rate || 'medium');
+    setEditRoleVoice(resolveSavedVoice(role.voice, voices));
     setEditRoleError('');
   };
 
@@ -678,9 +794,13 @@ export function EditorPage() {
       setEditRoleError('请输入角色名');
       return;
     }
+    if (!editRoleVoice) {
+      setEditRoleError('请选择一个音色');
+      return;
+    }
     if (!editingRole) return;
     setEditRoleError('');
-    updateRole.mutate({ id: editingRole.id, name, rate: editRoleRate });
+    updateRole.mutate({ id: editingRole.id, name, rate: editRoleRate, voice: editRoleVoice });
   };
 
   const removeSavedRole = (role: EditorRole) => {
@@ -1021,29 +1141,21 @@ export function EditorPage() {
     </div>}
     {roleDialogOpen && <div className="role-dialog-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget && !createRole.isPending) setRoleDialogOpen(false); }}>
       <section className="role-dialog" role="dialog" aria-modal="true" aria-labelledby="role-dialog-title">
-        <header className="role-dialog-header"><div><span className="role-dialog-icon"><Users size={20} /></span><span><h2 id="role-dialog-title">添加角色</h2><p>设置角色名称，并从音色库中选择一个声音。</p></span></div><button className="icon-button" onClick={() => setRoleDialogOpen(false)} disabled={createRole.isPending} aria-label="关闭弹窗"><X size={17} /></button></header>
+        <header className="role-dialog-header"><div><span className="role-dialog-icon"><Users size={20} /></span><span><h2 id="role-dialog-title">添加角色</h2><p>填写角色名和默认语速，再从音色库中筛选、试听并选择声音。</p></span></div><button className="icon-button" onClick={() => setRoleDialogOpen(false)} disabled={createRole.isPending} aria-label="关闭弹窗"><X size={17} /></button></header>
         <div className="role-dialog-fields">
           <label><span>角色名 <b aria-hidden="true">*</b></span><input value={roleName} maxLength={80} autoFocus onChange={(event) => { setRoleName(event.target.value); if (roleDialogError) setRoleDialogError(''); }} placeholder="例如：旁白、主持人、角色 A" /></label>
-          <label><span>搜索音色</span><div className="role-dialog-search"><Search size={16} /><input value={roleKeyword} onChange={(event) => setRoleKeyword(event.target.value)} placeholder="搜索名称、语言或音色 ID" /></div></label>
+          <label><span>默认语速</span><select value={roleRate} onChange={(event) => setRoleRate(event.target.value)}>{roleRateOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
         </div>
-        <div className="voice-library-tabs role-dialog-tabs"><button className={roleTab === 'all' ? 'active' : ''} onClick={() => setRoleTab('all')}>全部音色 <span>{voices.length}</span></button><button className={roleTab === 'favorites' ? 'active' : ''} onClick={() => setRoleTab('favorites')}>收藏 <span>{favoriteVoices.length}</span></button></div>
-        <div className="role-voice-scroll"><div className="voice-grid role-voice-grid">{roleTab === 'favorites' && favoritesLoading ? <p className="state-message">正在读取收藏…</p> : roleTab === 'all' && !voices.length ? <p className="state-message">暂无可选音色，请先在设置中连接 Azure Speech。</p> : roleVoiceResults.length ? roleVoiceResults.map((voice) => {
-          const selected = selectedRoleVoice?.ShortName === voice.ShortName;
-          return <button className={`voice-card role-voice-card ${selected ? 'selected' : ''}`} key={voice.ShortName} onClick={() => { setSelectedRoleVoice(voice); setRoleDialogError(''); }}>
-            {favoriteVoiceSet.has(voice.ShortName) && <Heart className="role-voice-favorite" size={14} fill="currentColor" />}
-            <div className="voice-avatar large">{voice.LocalName?.slice(0, 1) ?? '声'}</div>
-            <div><h3>{voiceName(voice, voice.ShortName)}</h3><p>{voice.LocaleName || voice.Locale} · {voice.Gender === 'Female' ? '女声' : voice.Gender === 'Male' ? '男声' : '音色'}</p></div>
-            <div className="voice-tags">{voice.StyleList?.slice(0, 2).map((style) => <span key={style}>{style}</span>)}{selected && <span className="role-selected-tag">已选择</span>}</div>
-          </button>;
-        }) : <p className="state-message">{roleTab === 'favorites' ? '收藏中没有匹配的音色。' : '没有找到匹配的音色。'}</p>}</div></div>
-        <footer className="role-dialog-footer"><span className={`role-dialog-message ${roleDialogError ? 'error' : ''}`}>{roleDialogError || (selectedRoleVoice ? `已选择：${voiceName(selectedRoleVoice, selectedRoleVoice.ShortName)}` : '请选择音色')}</span><div><button className="secondary-button" onClick={() => setRoleDialogOpen(false)} disabled={createRole.isPending}>取消</button><button className="primary-button" onClick={confirmRole} disabled={createRole.isPending}>{createRole.isPending ? <LoaderCircle className="spin" size={16} /> : <CheckCircle2 size={16} />}确认添加</button></div></footer>
+        <RoleVoicePicker voices={voices} favorites={favoriteVoices} favoritesLoading={favoritesLoading} voicesLoading={voicesLoading} selected={selectedRoleVoice} disabled={createRole.isPending} onSelect={(voice) => { setSelectedRoleVoice(voice); setRoleDialogError(''); }} />
+        <footer className="role-dialog-footer"><span className={`role-dialog-message ${roleDialogError ? 'error' : ''}`}>{!roleDialogError && selectedRoleVoice && <CheckCircle2 size={15} />}<span>{roleDialogError || (selectedRoleVoice ? `已选择音色：${voiceName(selectedRoleVoice, selectedRoleVoice.ShortName)}` : '请选择音色')}</span></span><div><button className="secondary-button" onClick={() => setRoleDialogOpen(false)} disabled={createRole.isPending}>取消</button><button className="primary-button" onClick={confirmRole} disabled={createRole.isPending}>{createRole.isPending ? <LoaderCircle className="spin" size={16} /> : <CheckCircle2 size={16} />}确认添加</button></div></footer>
       </section>
     </div>}
     {editingRole && <div className="role-dialog-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget && !updateRole.isPending) setEditingRole(null); }}>
-      <section className="role-edit-dialog" role="dialog" aria-modal="true" aria-labelledby="role-edit-title">
-        <header className="role-dialog-header"><div><span className="role-dialog-icon"><Pencil size={19} /></span><span><h2 id="role-edit-title">编辑角色</h2><p>修改角色名称和默认语速。</p></span></div><button className="icon-button" onClick={() => setEditingRole(null)} disabled={updateRole.isPending} aria-label="关闭弹窗"><X size={17} /></button></header>
-        <div className="role-edit-fields"><label><span>角色名 <b aria-hidden="true">*</b></span><input value={editRoleName} maxLength={80} autoFocus onChange={(event) => { setEditRoleName(event.target.value); if (editRoleError) setEditRoleError(''); }} placeholder="请输入角色名" /></label><label><span>默认语速</span><select value={editRoleRate} onChange={(event) => setEditRoleRate(event.target.value)}><option value="x-slow">x-slow · 0.5x · -50%</option><option value="slow">slow · 0.64x · -46%</option><option value="medium">medium · 1.0x · 默认</option><option value="fast">fast · 1.55x · +55%</option><option value="x-fast">x-fast · 2.0x · +100%</option></select></label></div>
-        <footer className="role-dialog-footer"><span className={`role-dialog-message ${editRoleError ? 'error' : ''}`}>{editRoleError || `当前音色：${voiceName(editingRole.voice, editingRole.voice.ShortName)}`}</span><div><button className="secondary-button" onClick={() => setEditingRole(null)} disabled={updateRole.isPending}>取消</button><button className="primary-button" onClick={confirmEditRole} disabled={updateRole.isPending}>{updateRole.isPending ? <LoaderCircle className="spin" size={16} /> : <CheckCircle2 size={16} />}保存修改</button></div></footer>
+      <section className="role-dialog" role="dialog" aria-modal="true" aria-labelledby="role-edit-title">
+        <header className="role-dialog-header"><div><span className="role-dialog-icon"><Pencil size={19} /></span><span><h2 id="role-edit-title">编辑角色</h2><p>字段与添加角色一致，可重新选择默认语速和音色。</p></span></div><button className="icon-button" onClick={() => setEditingRole(null)} disabled={updateRole.isPending} aria-label="关闭弹窗"><X size={17} /></button></header>
+        <div className="role-dialog-fields"><label><span>角色名 <b aria-hidden="true">*</b></span><input value={editRoleName} maxLength={80} autoFocus onChange={(event) => { setEditRoleName(event.target.value); if (editRoleError) setEditRoleError(''); }} placeholder="请输入角色名" /></label><label><span>默认语速</span><select value={editRoleRate} onChange={(event) => setEditRoleRate(event.target.value)}>{roleRateOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label></div>
+        <RoleVoicePicker voices={voices} favorites={favoriteVoices} favoritesLoading={favoritesLoading} voicesLoading={voicesLoading} selected={editRoleVoice} disabled={updateRole.isPending} onSelect={(voice) => { setEditRoleVoice(voice); setEditRoleError(''); }} />
+        <footer className="role-dialog-footer"><span className={`role-dialog-message ${editRoleError ? 'error' : ''}`}>{!editRoleError && editRoleVoice && <CheckCircle2 size={15} />}<span>{editRoleError || (editRoleVoice ? `已选择音色：${voiceName(editRoleVoice, editRoleVoice.ShortName)}` : '请选择音色')}</span></span><div><button className="secondary-button" onClick={() => setEditingRole(null)} disabled={updateRole.isPending}>取消</button><button className="primary-button" onClick={confirmEditRole} disabled={updateRole.isPending}>{updateRole.isPending ? <LoaderCircle className="spin" size={16} /> : <CheckCircle2 size={16} />}保存修改</button></div></footer>
       </section>
     </div>}
   </>;
