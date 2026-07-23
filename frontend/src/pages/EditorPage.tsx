@@ -213,7 +213,7 @@ const buildSsml = (segments: EditorSegment[], backgroundAudio?: BackgroundAudioS
     .join('\n');
 
   const background = backgroundAudio
-    ? `  <mstts:backgroundaudio src="${escapeXml(backgroundAudio.music.url)}" volume="${boundedNumber(backgroundAudio.volume, 0, 100, 1)}" fadein="${Math.round(boundedNumber(backgroundAudio.fadeIn, 0, 10000, 0))}" fadeout="${Math.round(boundedNumber(backgroundAudio.fadeOut, 0, 10000, 0))}"/>\n`
+    ? `  <mstts:backgroundaudio src="${escapeXml(backgroundAudio.music.url)}" volume="${boundedNumber(backgroundAudio.volume, 0, 100, 0.2)}" fadein="${Math.round(boundedNumber(backgroundAudio.fadeIn, 0, 10000, 0))}" fadeout="${Math.round(boundedNumber(backgroundAudio.fadeOut, 0, 10000, 0))}"/>\n`
     : '';
   return `<speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" xmlns:mstts="https://www.w3.org/2001/mstts" xml:lang="zh-CN">\n${background}${content}\n</speak>`;
 };
@@ -369,7 +369,7 @@ export function EditorPage() {
   const [backgroundCategory, setBackgroundCategory] = useState('');
   const [backgroundTag, setBackgroundTag] = useState('');
   const [backgroundAudio, setBackgroundAudio] = useState<BackgroundAudioSelection | null>(null);
-  const [backgroundDraft, setBackgroundDraft] = useState<{ musicId: number | null; volume: string; fadeIn: string; fadeOut: string }>({ musicId: null, volume: '1', fadeIn: '0', fadeOut: '0' });
+  const [backgroundDraft, setBackgroundDraft] = useState<{ musicId: number | null; volume: string; fadeIn: string; fadeOut: string }>({ musicId: null, volume: '0.2', fadeIn: '0', fadeOut: '0' });
   const [soundEffectDialogOpen, setSoundEffectDialogOpen] = useState(false);
   const [soundEffectKeyword, setSoundEffectKeyword] = useState('');
   const [soundEffectCategory, setSoundEffectCategory] = useState('');
@@ -840,7 +840,7 @@ export function EditorPage() {
     setBackgroundTag('');
     setBackgroundDraft(backgroundAudio
       ? { musicId: backgroundAudio.music.id, volume: backgroundAudio.volume, fadeIn: backgroundAudio.fadeIn, fadeOut: backgroundAudio.fadeOut }
-      : { musicId: null, volume: '1', fadeIn: '0', fadeOut: '0' });
+      : { musicId: null, volume: '0.2', fadeIn: '0', fadeOut: '0' });
     setBackgroundDialogOpen(true);
   };
 
