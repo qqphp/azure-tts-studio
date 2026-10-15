@@ -4,6 +4,9 @@
 
 [个人博客](https://qqphp.com) · [站点源码](https://github.com/qqphp/azure-tts-studio)
 
+## 页面展示
+![demo](./docs/assets/readme/demo1.gif)
+
 ## 核心功能
 
 | 模块 | 能力 |
