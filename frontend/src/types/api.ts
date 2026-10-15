@@ -56,10 +56,9 @@ export interface Settings {
   defaultVoice: string;
   outputFormat: string;
   theme?: string;
-  llm?: { provider?: string; base?: string; apiKey?: string; defaultModel?: string; timeout?: number };
+  llm?: { base?: string; apiKey?: string; defaultModel?: string; timeout?: number };
 }
 
-export interface LlmProvider { id: string; label: string; base: string; default_model: string; }
 export interface LlmModel { id: string; owned_by?: string; }
 export interface LlmConnectionResult { ok: boolean; count?: number; error?: string; }
 

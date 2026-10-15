@@ -6,6 +6,8 @@
 
 ## 本地开发
 
+使用 Node.js **v24.21.0**。先执行 `nvm use 24.21.0` 切换版本（尚未安装时执行 `nvm install 24.21.0`），再运行下列命令。
+
 先在一个终端启动现有 FastAPI 服务：
 
 ```bash
@@ -17,7 +19,7 @@ python main.py
 
 ```bash
 cd frontend
-npm install
+npm ci
 npm run dev
 ```
 

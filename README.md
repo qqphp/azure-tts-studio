@@ -1,67 +1,144 @@
-# Azure 文本转语音 (Azure TTS Studio)
+# Azure TTS Studio（大风车配音工坊）
 
-一个本地运行的 Web 应用,提供调用微软 Azure Cognitive Services 文本转语音 (Text-to-Speech) 的友好界面。后端使用 FastAPI，前端使用 React、TypeScript 和 Vite，密钥只存在本机,不会暴露给浏览器。
+基于 Azure Speech 的本地配音工作台，支持文本转语音、多角色编排、SSML 编辑和音频素材管理。前端使用 React、TypeScript 和 Vite，后端使用 FastAPI，业务数据保存在本机。
 
-![这是图片](./docs/assets/readme/demo1.gif)
+[个人博客](https://qqphp.com) · [站点源码](https://github.com/qqphp/azure-tts-studio)
 
-## 功能
+## 核心功能
 
-- 设置菜单:配置端点 (Endpoint) / 区域 (Region) / 密钥 (Key),可一键**测试连接**,成功后自动拉取音色列表
-- 音色库:支持按语言筛选、按名字搜索,显示性别标签
-- 合成台:
-  - 输入文本 (任意长度,超过 1800 字字符**自动分段合成后拼接**)
-  - 调语速 / 音调 / 音量 (滑块,留空即用默认)
-  - 选择说话风格 (mstts:express-as,自动按音色支持的 StyleList 动态填充)
-  - 选择角色 (role,OLT / Young / Senior 等)
-- 顶部模式菜单:
-  - **快速配音**保留原有文本、参数和 AI 检测工作流
-  - **专业配音**可编辑完整 Azure SSML，支持多音色、`break`、`prosody`、`mstts:express-as`、`say-as`、段落和句子等标签
-  - 提供常用标签插入工具、XML/SSML 结构检查、字符/字节统计；完整 SSML 会原样提交 Azure，不做破坏结构的自动分段
-- 音频播放条:页面底部胶囊式播放条,带频谱可视化动画,显示时长
-- 下载音频 / 历史记录 (本机持久化,可单条删除)
+| 模块 | 能力 |
+| --- | --- |
+| 快速配音 | 输入文本，设置音色、语速、音调、音量、风格与角色；长文本按 1800 字符分段合成 |
+| 专业配音 | 可视化片段编排、多音色与角色管理、SSML 源码编辑、标签工具和本地结构校验 |
+| 音色中心 | 多条件筛选、搜索、收藏；按音色生成并缓存试听音频 |
+| 音频素材 | 音效与背景音乐的分类、标签、搜索、试听和管理，支持 Excel 模板、导入与导出，可插入专业配音 |
+| 历史配音 | 本地保存合成音频和元数据，支持播放、下载、分页和批量删除 |
+| AI 文本优化 | 通过 OpenAI 兼容接口优化配音文本，展示摘要、评分和问题数量；可选配置 |
+| 设置 | Azure 连接、默认音色、输出格式、AI 接口和主题切换 |
 
-## 目录结构
+## 运行环境
 
-```
-Azure_TTS/
-├── backend/
-│   ├── main.py             FastAPI 开发入口
-│   ├── app/                后端应用包（路由、服务、配置）
-│   │   ├── api.py          HTTP API 路由
-│   │   ├── factory.py      应用装配
-│   │   ├── core/           配置与基础设施
-│   │   └── services/       Speech、SSML、历史业务服务
-│   ├── tests/              不依赖 Azure 密钥的回归测试
-│   └── requirements.txt
-├── frontend/               React + TypeScript + Vite 前端
-│   ├── src/                页面、组件、状态与 API 客户端
-│   └── public/             favicon 等直接复制的公共资源
-├── docs/assets/readme/     README 使用的演示图片
-├── config.json             保存的配置 (运行后自动生成,含 apiKey,请勿提交 git)
-└── history/                历史音频 + 元数据 (.bin / .json)
+- **Node.js v24.21.0**：用于前端开发与构建，版本记录在 `.nvmrc` 和前端 `package.json`。
+- **Python**：当前已在 **3.12.9** 下验证，建议使用项目独立虚拟环境。
+- **Azure Speech 资源**：需准备可用的 Endpoint 和 API Key；实际可用音色、风格与格式取决于资源及服务支持。
+- AI 文本优化另需提供兼容接口地址、密钥和模型；不配置也可使用配音功能。
+
+## 快速启动
+
+```bash
+git clone git@github.com:qqphp/azure-tts-studio.git
+cd azure-tts-studio
+nvm install 24.21.0
+nvm use 24.21.0
 ```
 
-## 安装与运行
+### 一键启动
+
+Windows 在项目根目录运行 `start.bat`；macOS/Linux 执行 `bash start.sh`。
+
+脚本会创建后端虚拟环境并安装 Python 依赖；如果缺少前端构建，会安装前端依赖并构建。启动后访问 **<http://127.0.0.1:8030>**。
+
+**脚本不会自动重建已有的前端产物。** 更新前端代码后，请先在 `frontend/` 执行 `npm ci` 和 `npm run build`，再启动服务或刷新页面。
+
+### 手动启动
+
+先构建前端：
 
 ```bash
 cd frontend
 npm ci
 npm run build
-
 cd ../backend
 python -m venv .venv
-# Windows: .venv\Scripts\activate   | macOS/Linux: source .venv/bin/activate
-pip install -r requirements.txt
+```
+
+激活虚拟环境：
+
+```powershell
+# Windows PowerShell，在 backend 目录执行
+.\.venv\Scripts\Activate.ps1
+```
+
+```bash
+# macOS/Linux，在 backend 目录执行
+source .venv/bin/activate
+```
+
+然后安装依赖并启动：
+
+```bash
+python -m pip install -r requirements.txt
 python main.py
 ```
 
-也可以直接运行项目根目录的 `start.bat`（Windows）或 `start.sh`（macOS/Linux）；首次启动且缺少前端构建时，脚本会自动安装依赖并完成构建。
+后端默认仅监听 `127.0.0.1:8030`，并托管 `frontend/dist/`。运行期间保持终端打开，按 `Ctrl+C` 停止。
 
-打开浏览器访问 <http://127.0.0.1:8030>。
+## 配置与使用
 
-## 开发检查
+### Azure Speech
 
-修改后端或前端模块后，可在项目根目录运行以下检查：
+在左侧“设置”中填写 Azure Speech Endpoint 和 API Key，选择默认音色与音频格式，保存后测试连接。密钥输入框留空表示保留已保存的值。
+
+Endpoint 请填写资源地址或区域 TTS 地址，**不要附加** `cognitiveservices/voices/list` 或 `cognitiveservices/v1`：
+
+| 输入示例 | 程序使用的语音服务基址 |
+| --- | --- |
+| `https://<resource>.services.ai.azure.com` | `https://<resource>.services.ai.azure.com/tts` |
+| `https://<region>.tts.speech.microsoft.com` | 保持该地址 |
+| `https://<host>/tts` | 保持该地址 |
+
+程序去除末尾 `/` 后，若地址包含 `.tts.speech.` 或以 `/tts` 结尾，就直接使用；其他地址会自动追加 `/tts`。音色列表和合成请求分别在基址后追加 `/cognitiveservices/voices/list` 与 `/cognitiveservices/v1`。无需填写 Region 字段。
+
+建议先用默认 MP3 格式验证播放。音色中心的首次试听会请求 Azure 合成并写入缓存，后续播放复用缓存。
+
+### AI 文本优化（可选）
+
+在“设置 → AI 文本优化”填写：
+
+1. **Base URL**：填写兼容 API 的完整基址，例如 `https://api.example.com/v1`；不要附加 `/models` 或 `/chat/completions`，程序不会自动补 `/v1`。
+2. **API Key**：使用 Bearer 认证；已保存密钥可留空沿用。
+3. 点击“获取模型”，从返回列表中选择默认模型，点击“保存配置”。可用“测试 LLM”检查模型列表接口是否可访问。
+
+不需要选择服务商。接口需支持 `GET {base}/models` 和 `POST {base}/chat/completions`；当前优化请求包含 `response_format: {"type":"json_object"}`，模型需要返回可解析的 JSON 对象。测试连接仅检查模型列表，不代表文本优化请求一定成功。
+
+优化提示词位于 `backend/prompt/text _detection.txt`。优化成功且返回非空 `tts_text` 时会替换当前配音文本；生成配音前请确认内容。
+
+### 专业配音与音频素材
+
+- 可视化编辑中按片段设置音色和表达参数；切换至源码模式可编辑完整 SSML。
+- 本地校验检查 XML 安全性与基本 SSML 结构，具体标签、音色和参数是否可用仍由 Azure 判断。
+- 完整 SSML 单次提交，不自动分段；快速配音的分段结果采用字节拼接，并非音频重编码或严格无缝合并。
+- 音效与背景音乐库保存的是音频 URL 及元数据，不会自动下载素材。插入 SSML 的素材地址需可被 Azure 访问，浏览器试听还受格式与网络条件影响。
+
+## 数据存储与备份
+
+| 位置 | 内容 |
+| --- | --- |
+| `config.json` | Azure、AI 接口及主题等设置；运行后按需生成 |
+| 系统凭据库 | Azure 和 AI 密钥；Windows 使用凭据管理器，服务名 `Azure-TTS-Studio` |
+| `data/studio.db` | SQLite 数据库：历史索引、收藏音色、专业配音角色、音效及背景音乐元数据 |
+| `history/` | 合成音频 `.bin` 与对应 JSON 元数据 |
+| `voice_previews/` | 试听音频及缓存清单 |
+
+旧 JSON 密钥在系统凭据库可用时会自动迁移；不可用时仍保留本地 JSON 回退。后端设置接口只返回脱敏密钥。不要提交或分享包含密钥的配置文件。
+
+备份前先停止服务，再复制 `config.json`、`data/`、`history/` 和需要保留的 `voice_previews/`。系统凭据不包含在这些文件中，迁移到新电脑后需要重新输入密钥；外部音频 URL 对应的素材也需自行保存。
+
+## 开发与检查
+
+主要目录：`frontend/src/` 包含页面、组件、API 客户端和状态；`backend/app/modules/` 按业务模块组织路由与数据访问，`core/` 提供配置、凭据和 SQLite 基础设施，`services/` 处理语音及 SSML；回归测试位于 `backend/tests/`。
+
+后端使用虚拟环境运行 `python main.py`。前端开发另开终端：
+
+```bash
+cd frontend
+npm ci
+npm run dev
+```
+
+访问 <http://127.0.0.1:5173>，Vite 将 `/api` 请求代理至 8030 后端。后端 API 文档为 <http://127.0.0.1:8030/docs>，健康检查为 `/api/health`。
+
+激活后端虚拟环境后，在项目根目录运行回归测试，再检查前端：
 
 ```bash
 python -m unittest discover -s backend/tests -v
@@ -70,95 +147,44 @@ npm run check
 npm run build
 ```
 
-测试不会请求 Azure Speech，也不会使用或写入现有的音频历史；覆盖健康检查、配置脱敏、SSML 安全校验与音频格式映射。
-
-## 配置 Azure Speech 资源
-
-1. 在 [Azure Portal](https://portal.azure.com) 创建 **Azure AI Speech** 资源(AI Services kind,F0 免费层即可)
-2. 进入资源 → "密钥和终结点" (Keys and Endpoint),复制
-   - **Key 1**
-   - **Endpoint**,形如 `https://<your-resource>.services.ai.azure.com/`
-3. 在本应用右上角点击"设置",把端点和密钥填入,点击"测试连接"
-   - 成功后会显示中文音色数量,音色库自动加载
-
-REST 路径说明:本后端固定走经典 Azure AI Speech REST 形式:
-- 列出音色:`GET {endpoint}/cognitiveservices/voices/list`
-- 合成语音:`POST {endpoint}/cognitiveservices/v1`(body 为 SSML)
-- 本地 SSML 校验:`POST /api/ssml/validate`，JSON body 为 `{ "ssml": "<speak ...>...</speak>" }`
-- 专业 SSML 合成:`POST /api/speak-ssml`，JSON body 同上
-- `endpoint` 直接用填入的请求地址(去尾部 `/`),可填自定义资源端点(如 `https://xxx.services.ai.azure.com/`)或区域专用 TTS 域名(如 `https://eastus.tts.speech.microsoft.com`);无需 region 字段。
-
-## 音色速查
-
-中文常用音色 (ShortName):
-- 女声: `zh-CN-XiaoxiaoNeural` (晓晓,多风格)、`zh-CN-XiaoyiNeural` (晓伊)、`zh-CN-XiaohanNeural`
-- 男声: `zh-CN-YunyangNeural` (云扬)、`zh-CN-YunjianNeural` (云健)、`zh-CN-YunxiNeural` (云希)
-
-## AI 检测 (大模型) 配置
-
-"设置"弹窗里多了一个 Tab:**大模型 AI 检测**。配置完后工坊合成区"合成"按钮左侧的"AI 检测"按钮会高亮可点;没配置时呈灰色禁用状态。点击会用大模型对文本框内容做错别字、标点、语义、中英文混合、TTS 朗读优化等多维检测,返回结构严格 JSON。前端会:
-
-1. 用 LLM 返回的 `tts_text` 字段**替换**文本框内容(若为空则保留原文并 toast 提示)
-2. 把 `summary` 字段展示在合成按钮区下方,带评分 + 问题数标签
-
-支持的厂商(均走 OpenAI 兼容协议 `/v1/chat/completions` + Bearer key):
-
-| 厂商 | 默认 base URL | 默认模型 |
-|---|---|---|
-| 智谱 GLM | `https://open.bigmodel.cn/api/paas/v4` | glm-4-flash |
-| DeepSeek | `https://api.deepseek.com/v1` | deepseek-chat |
-| Kimi (月之暗面) | `https://api.moonshot.cn/v1` | moonshot-v1-8k |
-| 通义千问 | `https://dashscope.aliyuncs.com/compatible-mode/v1` | qwen-plus |
-| MiniMax | `https://api.minimax.chat/v1` | abab6.5s-chat |
-| 豆包 Doubao | `https://ark.cn-beijing.volces.com/api/v3` | doubao-1-5-pro-32k |
-| 自定义 | 用户填 | 用户填 |
-
-操作流程:
-1. 选厂商 → 自动填默认请求地址和默认模型(可直接保存)
-2. 填 API Key
-3. 点"获取模型列表" → 后端调 `{base}/models` 拉所有可用模型
-4. 在"默认模型"下拉里选一个(必选)
-5. 点"测试连接"验证 + "保存 LLM 配置"
-
-检测 prompt 固化在后端 `backend/prompt/text _detection.txt`,LLM 强制 `response_format: {"type":"json_object"}` 并对返回做容错 JSON 解析,即便个别厂商不支持 JSON mode 也能兜底。
-
-## 设计取舍说明
-
-- **配置存储在服务端** `config.json`,而非常浏览器 localStorage:密钥不出后端,换浏览器/设备无需重填;代价是要本机跑后端进程。
-- **长文本分段**:Azure 单次合成约 5000 字符上限,本项目按 1800 字符分段,合成后**直接字节拼接**播放。简单 mp3 字节拼接在主流浏览器 `<audio>` 上可正常播放和解码;如需严格无缝合并,可改用 ffmpeg 拼接 (需额外依赖)。
-- **SSML** 由后端构造,前端只发送语义字段 (rate/pitch/volume/style/role),避免前端手拼 XML 出错或注入。
-- 输出格式默认 `audio-16khz-128kbitrate-mono-mp3`,在设置弹窗里可调整为 24kHz / 48kHz / WAV / OGG。
+AI 接口回归使用模拟响应，不调用付费优化服务。数据库写入测试使用临时文件；应用初始化会执行已有的本地凭据迁移逻辑。
 
 ## 常见问题
 
-- **音色测试连接只有556个**: 区域要选择: eastus，768个音色才是正常的。
-- **测试连接显示 HTTP 401**:apiKey 不对,或在错误区域。
-- **测试连接显示 HTTP 403**:可能用了免key 部署模式,或区域与资源不匹配。
-- **音色列表为空**:Azure 部分订阅未开通 neural 音色,确认资源区域支持 Neural。
-- **合成音频听不到**:浏览器对 mp3 简单拼接的解码通常 OK;若换格式后失败,建议保持默认 mp3 16kHz。
+- **首页提示缺少前端构建**：在 `frontend/` 执行 `npm ci` 和 `npm run build`，再重启后端。
+- **更新后仍显示旧界面**：重新构建前端，再刷新浏览器；一键启动不会覆盖已有构建。
+- **Azure 连接失败**：核对资源密钥、Endpoint 以及实际拼接后的 `/tts` 路径；401/403 时检查凭据与资源权限。
+- **音色数量或风格与预期不同**：以当前资源返回列表为准，不同资源、区域、模型及时间可能不同。
+- **AI 无法获取模型**：检查 Base URL、密钥、网络和 `/models` 支持；默认模型必须从返回列表选择。
+- **LLM 测试成功但优化失败**：确认所选模型支持 Chat Completions、当前请求参数以及 JSON 对象输出。
+- **音频无法播放**：优先使用默认 MP3 格式；RAW、部分编码或分段字节拼接结果可能不适合浏览器直接播放。
 
-## Azure TTS配置的第一种方案，创建 Foundry 资源(付费)
-在 Azure 门户中创建一个 Foundry 资源。官网地址：[https://portal.azure.com](https://portal.azure.com)
+## Azure 资源创建参考
 
-1. 填写创建 Foundry 资源，填写所需的基础信息
-![这是图片](./docs/assets/readme/foundry0.png)
-![这是图片](./docs/assets/readme/foundry1.png)
+以下截图保留资源创建与取用凭据的参考流程，门户界面、资源可用性和计费规则以 Azure 实际显示为准。
 
-2. 探索模型，查看是否存在模型
-![这是图片](./docs/assets/readme/foundry2.png)
-![这是图片](./docs/assets/readme/foundry3.png)
+<details>
+<summary>通过 Foundry 资源配置</summary>
 
-3. 查看请求地址和密钥
-![这是图片](./docs/assets/readme/foundry4.png)
-![这是图片](./docs/assets/readme/foundry5.png)
+在 [Azure 门户](https://portal.azure.com) 创建 Foundry 资源，检查可用模型，再从资源中获取请求地址与密钥。
 
-## Azure TTS配置的第二种方案，创建语言服务(免费，限50万字)
-在 Azure 门户中创建一个语音服务资源。官网地址：[https://portal.azure.com](https://portal.azure.com)
+![创建 Foundry 资源入口](./docs/assets/readme/foundry0.png)
+![填写 Foundry 资源信息](./docs/assets/readme/foundry1.png)
+![查看可用模型](./docs/assets/readme/foundry2.png)
+![检查模型信息](./docs/assets/readme/foundry3.png)
+![查看资源地址](./docs/assets/readme/foundry4.png)
+![获取资源密钥](./docs/assets/readme/foundry5.png)
 
-1. 查询语音服务资源，然后创建语音服务资源
-![这是图片](./docs/assets/readme/voice1.png)
-![这是图片](./docs/assets/readme/voice2.png)
+</details>
 
-2. 查看创建的语音服务资源，然后获取请求地址和密钥
-![这是图片](./docs/assets/readme/voice3.png)
-![这是图片](./docs/assets/readme/voice4.png)
+<details>
+<summary>通过 Speech 语音服务资源配置</summary>
+
+在 [Azure 门户](https://portal.azure.com) 搜索并创建语音服务资源，按订阅可用选项选择区域与定价层，再进入资源的“密钥和终结点”获取凭据。
+
+![查找语音服务](./docs/assets/readme/voice1.png)
+![创建语音服务资源](./docs/assets/readme/voice2.png)
+![查看资源信息](./docs/assets/readme/voice3.png)
+![获取语音服务密钥和终结点](./docs/assets/readme/voice4.png)
+
+</details>

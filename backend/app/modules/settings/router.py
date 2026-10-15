@@ -1,6 +1,7 @@
 from typing import Any
 
 import httpx
+import llm_bridge
 from fastapi import APIRouter, Request
 
 from app.core.config import DEFAULT_CONFIG, load_config, masked_config, save_config
@@ -10,14 +11,21 @@ from app.services.speech import auth_headers, voices_endpoint
 router = APIRouter(tags=["settings"])
 
 
+def settings_response(config: dict[str, Any]) -> dict[str, Any]:
+    result = masked_config(config)
+    result["llm"]["base"] = llm_bridge.resolve_base(config)
+    result["llm"]["defaultModel"] = llm_bridge.resolve_default_model(config)
+    return result
+
+
 @router.get("/settings")
 def get_settings() -> dict[str, Any]:
-    return masked_config(load_config())
+    return settings_response(load_config())
 
 
 @router.post("/settings")
 async def set_settings(payload: SettingsPayload) -> dict[str, Any]:
-    return masked_config(save_config(payload.model_dump()))
+    return settings_response(save_config(payload.model_dump()))
 
 
 @router.post("/test")

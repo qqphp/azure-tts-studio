@@ -1,4 +1,4 @@
-import type { AiReviewResult, BackgroundMusic, ConnectionResult, EditorRole, HistoryItem, LlmConnectionResult, LlmModel, LlmProvider, Settings, SoundEffect, SsmlValidation, SynthesisResult, Voice, VoicePreview } from '../types/api';
+import type { AiReviewResult, BackgroundMusic, ConnectionResult, EditorRole, HistoryItem, LlmConnectionResult, LlmModel, Settings, SoundEffect, SsmlValidation, SynthesisResult, Voice, VoicePreview } from '../types/api';
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
   const response = await fetch(path, options);
@@ -70,7 +70,6 @@ export const api = {
   }),
   testConnection: () => request<ConnectionResult>('/api/test', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' }),
   llmStatus: () => request<{ configured: boolean; model: string }>('/api/llm/status'),
-  llmProviders: () => request<LlmProvider[]>('/api/llm/providers'),
   llmModels: () => request<LlmModel[]>('/api/llm/models'),
   testLlm: () => request<LlmConnectionResult>('/api/llm/test', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' }),
   reviewText: (text: string) => request<AiReviewResult>('/api/llm/check', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text }) }),
